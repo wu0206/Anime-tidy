@@ -176,7 +176,7 @@ export default function App() {
     setResetConfirm(false);
   };
 
-  // --- Fix: Missing Helper Functions ---
+  // --- Fix: Added Missing Helper Functions ---
   const openEditModal = (type, item, folderId = null) => {
     setEditingItem({ type, item, listId: item.id, folderId });
   };
@@ -276,7 +276,7 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
   const isWatched = (n) => history.some(h => h.name.replace(/\s/g,'') === n.replace(/\s/g,''));
   const toggleSel = (id) => { const s = new Set(sel); if(s.has(id)) s.delete(id); else s.add(id); setSel(s); };
   
-  // Fix: Use window.confirm instead of global confirm
+  // Fix: Use window.confirm instead of global confirm to fix build error
   const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(data.map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))); setSel(new Set()); setBatch(false); } };
   
   const add = (fid, name) => onUpdate(data.map(f => f.id===fid ? {...f, items:[...f.items, {id:Date.now().toString(), name, note:'', isCrossSeason:false}]} : f));
@@ -327,7 +327,7 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
   
   const toggleSel = (id) => { const s = new Set(sel); if(s.has(id)) s.delete(id); else s.add(id); setSel(s); };
   
-  // Fix: Use window.confirm instead of global confirm
+  // Fix: Use window.confirm instead of global confirm to fix build error
   const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(list.filter(i => !sel.has(i.id))); setSel(new Set()); setBatch(false); } };
 
   return (
