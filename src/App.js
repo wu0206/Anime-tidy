@@ -12,7 +12,7 @@ const COLLECTION_NAME = "anime_tracker_data";
 // --- 圖示元件 ---
 const Icons = { Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut, Google: () => <span className="font-bold text-lg">G</span> };
 
-// --- 初始資料常數 (省略部分內容以節省篇幅，邏輯與之前相同) ---
+// --- 初始資料常數 ---
 const RATED_SOURCE = [{r:6,items:["Lycoris Recoil 莉可麗絲 Friends are thieves of time","藥師少女的獨語 第二季","青春豬頭少年不會夢到聖誕服女郎","薰香花朵凛然綻放","Silent Witch 沉默魔女的秘密"]},{r:5,items:["青春之箱","結緣甘神神社","紫雲寺家的兄弟姊妹","戀上換裝娃娃 第2季","我們不可能成為戀人！絕對不行。（※似乎可行？）"]},{r:4,items:["黑岩目高不把我的可愛放在眼裡","妻子變成小學生","Love Live! Superstar!!","只想告訴你","群花綻放","我和班上最討厭的女生結婚了","GATE 奇幻自衛隊","天久鷹央","SAKAMOTO DAYS"]},{r:3,items:["七大罪","聽說你們要結婚","轉生為第七王子","版本日常學園","默示錄","我的幸福婚約","炎炎消防隊","小市民系列","男女之間存在純友情嗎","章魚嗶的原罪","mono女孩","隨興旅","盾之勇者"]},{r:2,items:["的偵探這沒用","忍者與殺手的兩人生活","僕愛君愛","未來日記","雖然是公會的櫃檯小姐","歡迎光臨流放者食堂"]},{r:1,items:["公爵千金的家庭教師","精靈幻想記","魔法光源","時光沙漏","剎那之花","這個美術社大有問題"]}];
 const SEASONAL_SOURCE = [
   {name:"2025 10月",items:["SPY×FAMILY 第三季","擁有超常技能的異世界流浪美食家 第二季","一拳超人 第三季","彈珠汽水瓶裡的千歲同學","對我垂涎欲滴的非人少女","我的英雄學院 FINAL","朋友的妹妹只纏著我","女騎士成為蠻族新娘","這裡是充滿笑容的職場","機械女僕‧瑪麗","不動聲色的柏田","野原廣志","跨越種族與你相戀","永久的黃昏","不擅吸血的吸血鬼","不中用的前輩","賽馬娘 灰髮灰姑娘","最後可以再拜託您一件事嗎"]},
@@ -176,6 +176,15 @@ export default function App() {
     setResetConfirm(false);
   };
 
+  // --- Fix: Missing Helper Functions ---
+  const openEditModal = (type, item, folderId = null) => {
+    setEditingItem({ type, item, listId: item.id, folderId });
+  };
+
+  const openRateModal = (item, source) => {
+    setRateModal({ isOpen: true, item, source });
+  };
+
   // --- Render ---
   if (loading) return <div className="flex h-screen items-center justify-center text-gray-500">載入中...</div>;
   if (!user) return (
@@ -266,7 +275,10 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
   
   const isWatched = (n) => history.some(h => h.name.replace(/\s/g,'') === n.replace(/\s/g,''));
   const toggleSel = (id) => { const s = new Set(sel); if(s.has(id)) s.delete(id); else s.add(id); setSel(s); };
-  const delSel = () => { if(confirm(`刪除 ${sel.size} 項?`)) { onUpdate(data.map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))); setSel(new Set()); setBatch(false); } };
+  
+  // Fix: Use window.confirm instead of global confirm
+  const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(data.map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))); setSel(new Set()); setBatch(false); } };
+  
   const add = (fid, name) => onUpdate(data.map(f => f.id===fid ? {...f, items:[...f.items, {id:Date.now().toString(), name, note:'', isCrossSeason:false}]} : f));
   const importFolder = (items) => { onImport(items.map(i => ({...i, id:`imp-${Date.now()}-${Math.random()}`}))); alert("已匯入"); };
 
@@ -314,7 +326,9 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
   const groups = useMemo(() => { const g={}; RATING_TIERS.forEach(t=>g[t.value]=[]); filtered.forEach(i=>{ const r=i.rating??0; if(g[r]) g[r].push(i); }); return g; }, [filtered]);
   
   const toggleSel = (id) => { const s = new Set(sel); if(s.has(id)) s.delete(id); else s.add(id); setSel(s); };
-  const delSel = () => { if(confirm(`刪除 ${sel.size} 項?`)) { onUpdate(list.filter(i => !sel.has(i.id))); setSel(new Set()); setBatch(false); } };
+  
+  // Fix: Use window.confirm instead of global confirm
+  const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(list.filter(i => !sel.has(i.id))); setSel(new Set()); setBatch(false); } };
 
   return (
     <div className="space-y-4">
