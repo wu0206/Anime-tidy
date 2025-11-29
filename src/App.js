@@ -38,10 +38,23 @@ const generateInitialData = () => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('towatch');
-  // 優先嘗試從 LocalStorage 讀取資料，解決刷新不見的問題
+  
+  // --- 安全讀取資料 (Fix: 增加 try-catch 防止白畫面) ---
   const [data, setDataState] = useState(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : generateInitialData();
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // 檢查必要結構，如果不完整就回傳初始值，避免崩潰
+        if (!parsed.toWatch || !parsed.seasonal || !parsed.history) {
+          return generateInitialData();
+        }
+        return parsed;
+      }
+    } catch (e) {
+      console.error("資料讀取失敗，重置為預設值", e);
+    }
+    return generateInitialData();
   });
   
   const [user, setUser] = useState(null);
@@ -65,11 +78,15 @@ export default function App() {
         const unsubData = onSnapshot(docRef, (docSnap) => {
           if (docSnap.exists()) {
             const cloudData = docSnap.data();
-            setDataState(cloudData);
-            // 同步寫入 LocalStorage 作為備份
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cloudData));
+            // 確保雲端資料結構完整
+            const safeData = {
+                toWatch: cloudData.toWatch || [],
+                seasonal: cloudData.seasonal || [],
+                history: cloudData.history || []
+            };
+            setDataState(safeData);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(safeData));
           } else {
-            // 如果雲端沒資料，把當前的資料寫上去
             setDoc(docRef, data);
           }
           setLoading(false);
@@ -79,22 +96,18 @@ export default function App() {
         });
         return () => unsubData();
       } else {
-        // 未登入，保持使用 LocalStorage (已經在 useState 初始化處理)
         setLoading(false);
       }
     });
 
     getRedirectResult(auth).catch(e => setAuthError(e.message));
     return () => unsubAuth();
-  }, []); // 移除 data 依賴，避免循環
+  }, []); 
 
   // --- Update Data Helper ---
   const updateData = (newData) => {
-    // 1. 立即更新 UI
     setDataState(newData);
-    // 2. 總是保存到 LocalStorage (解決刷新不見的問題)
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newData));
-    // 3. 如果有登入，同步到 Firebase
     if (user) {
       setDoc(doc(db, "users", user.uid, COLLECTION_NAME, "main"), newData).catch(console.error);
     }
@@ -157,10 +170,8 @@ export default function App() {
     const newData = { ...data };
     const normName = normalize(item.name);
     
-    // 加到歷史
     newData.history = [{...item, id:`h-${Date.now()}`, rating, note, date:new Date().toISOString().split('T')[0]}, ...newData.history];
     
-    // 從來源移除 (如果是從待看點擊，則從待看移除；如果是新番，則從待看移除該新番(若有))
     if (source === 'towatch') newData.toWatch = newData.toWatch.filter(i => i.id !== item.id);
     else if (source === 'seasonal') newData.toWatch = newData.toWatch.filter(i => normalize(i.name) !== normName);
     
@@ -208,13 +219,13 @@ export default function App() {
       </nav>
 
       <main className="max-w-4xl mx-auto p-3">
-        {activeTab === 'towatch' && <ToWatchView list={data.toWatch} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
-        {activeTab === 'seasonal' && <SeasonalView data={data.seasonal} history={data.history} onUpdate={(newSeasonal)=>updateData({...data, seasonal: newSeasonal})} onImport={(items)=>updateData({...data, toWatch:[...data.toWatch, ...items]})} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
-        {activeTab === 'history' && <HistoryView list={data.history} onUpdate={(newHistory)=>updateData({...data, history: newHistory})} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
+        {activeTab === 'towatch' && <ToWatchView list={data.toWatch || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
+        {activeTab === 'seasonal' && <SeasonalView data={data.seasonal || []} history={data.history || []} onUpdate={(newSeasonal)=>updateData({...data, seasonal: newSeasonal})} onImport={(items)=>updateData({...data, toWatch:[...data.toWatch, ...items]})} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
+        {activeTab === 'history' && <HistoryView list={data.history || []} onUpdate={(newHistory)=>updateData({...data, history: newHistory})} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.6 ● {user ? '已連線' : '本地模式'}</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.7 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
@@ -244,7 +255,7 @@ function LoginScreen({ login, error, processing }) {
 
 // --- Views & Components ---
 
-// 1. ToWatchView (還原新增區塊樣式、Gacha Modal 樣式)
+// 1. ToWatchView
 function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
@@ -262,7 +273,6 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
 
   return (
     <div className="space-y-6">
-      {/* 新增待看卡片 (還原樣式) */}
       <div className="bg-white p-4 rounded-xl shadow-sm border space-y-3">
         <h3 className="font-bold text-indigo-600 flex items-center gap-2"><Icons.Plus className="w-5 h-5"/> 新增待看</h3>
         <input className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-indigo-100" placeholder="動漫名稱" value={name} onChange={e=>setName(e.target.value)} />
@@ -303,7 +313,6 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
         </div>
       ))}</div>
 
-      {/* 抽選結果 Modal (還原樣式) */}
       {gachaResult && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-[bounce_0.5s_ease-out]">
@@ -326,13 +335,13 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   );
 }
 
-// 2. SeasonalView (還原新增資料夾功能、內部虛線框)
+// 2. SeasonalView
 function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, onEdit, onRate }) {
   const [term, setTerm] = useState('');
   const [exp, setExp] = useState({});
   const [batch, setBatch] = useState(false);
   const [sel, setSel] = useState(new Set());
-  const [newFolderName, setNewFolderName] = useState(''); // 新增季節資料夾名稱
+  const [newFolderName, setNewFolderName] = useState('');
 
   const filtered = useMemo(() => {
     if(!term) return data;
@@ -343,17 +352,10 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
   const isWatched = (n) => history.some(h => h.name.replace(/\s/g,'') === n.replace(/\s/g,''));
   const toggleSel = (id) => { const s = new Set(sel); if(s.has(id)) s.delete(id); else s.add(id); setSel(s); };
   
-  // 批量全選功能
   const toggleSelectAll = () => {
-    // 找出目前顯示的所有項目的 ID
     const visibleIds = filtered.flatMap(f => f.items.map(i => i.id));
-    const allSelected = visibleIds.every(id => sel.has(id));
-    
-    if (allSelected) {
-        setSel(new Set());
-    } else {
-        setSel(new Set(visibleIds));
-    }
+    if (visibleIds.every(id => sel.has(id))) setSel(new Set());
+    else setSel(new Set(visibleIds));
   };
 
   const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(data.map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))); setSel(new Set()); setBatch(false); } };
@@ -362,7 +364,6 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
 
   return (
     <div className="space-y-4">
-      {/* Search & Batch Bar */}
       <div className="bg-white p-2 rounded-lg border flex gap-2 items-center sticky top-14 z-10 shadow-sm">
         {batch ? (
           <div className="flex justify-between w-full items-center px-1">
@@ -382,7 +383,6 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
         )}
       </div>
 
-      {/* 新增資料夾區塊 (還原功能) */}
       {!batch && !term && (
         <div className="bg-white p-3 rounded-lg border flex gap-2 shadow-sm">
           <div className="flex items-center text-indigo-500 pl-1"><Icons.FolderPlus className="w-5 h-5"/></div>
@@ -391,7 +391,6 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
         </div>
       )}
 
-      {/* 資料夾列表 */}
       <div className="space-y-3">{filtered.map(f => {
         const open = term || batch || exp[f.id];
         const watched = f.items.filter(i=>isWatched(i.name)).length;
@@ -408,7 +407,6 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
             </div>
             
             {open && <div className="p-4 bg-gray-50/50">
-              {/* 資料夾內新增項目 (還原虛線樣式) */}
               {!batch && !term && <AddSeasonalItemForm onAdd={(n, note, c)=>add(f.id,n,note,c)} />}
               
               <div className="space-y-2 mt-3">{sorted.map(i => (
@@ -434,7 +432,6 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
   );
 }
 
-// 內部元件：資料夾內的新增表單 (虛線樣式)
 function AddSeasonalItemForm({ onAdd }) {
     const [name, setName] = useState('');
     const [note, setNote] = useState('');
@@ -451,7 +448,7 @@ function AddSeasonalItemForm({ onAdd }) {
     );
 }
 
-// 3. HistoryView (保持原樣，優化列表)
+// 3. HistoryView
 function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
   const [term, setTerm] = useState('');
   const [batch, setBatch] = useState(false);
@@ -516,7 +513,6 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
   );
 }
 
-// --- Common Components ---
 function Modal({ title, children, onClose }) {
   return <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 backdrop-blur-sm"><div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6"><div className="flex justify-between mb-4 border-b pb-2"><h3 className="text-xl font-bold text-gray-800">{title}</h3><button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Icons.X /></button></div>{children}</div></div>;
 }
