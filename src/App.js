@@ -12,31 +12,49 @@ const COLLECTION_NAME = "anime_tracker_data";
 // --- 圖示元件 ---
 const Icons = { Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut, Google: () => <span className="font-bold text-lg">G</span> };
 
-// --- 初始資料常數 ---
-const RATED_SOURCE = [{r:6,items:["Lycoris Recoil 莉可麗絲 Friends are thieves of time","藥師少女的獨語 第二季","青春豬頭少年不會夢到聖誕服女郎","薰香花朵凛然綻放","Silent Witch 沉默魔女的秘密"]},{r:5,items:["青春之箱","結緣甘神神社","紫雲寺家的兄弟姊妹","戀上換裝娃娃 第2季","我們不可能成為戀人！絕對不行。（※似乎可行？）"]},{r:4,items:["黑岩目高不把我的可愛放在眼裡","妻子變成小學生","Love Live! Superstar!!","只想告訴你","群花綻放","我和班上最討厭的女生結婚了","GATE 奇幻自衛隊","天久鷹央","SAKAMOTO DAYS"]},{r:3,items:["七大罪","聽說你們要結婚","轉生為第七王子","版本日常學園","默示錄","我的幸福婚約","炎炎消防隊","小市民系列","男女之間存在純友情嗎","章魚嗶的原罪","mono女孩","隨興旅","盾之勇者"]},{r:2,items:["的偵探這沒用","忍者與殺手的兩人生活","僕愛君愛","未來日記","雖然是公會的櫃檯小姐","歡迎光臨流放者食堂"]},{r:1,items:["公爵千金的家庭教師","精靈幻想記","魔法光源","時光沙漏","剎那之花","這個美術社大有問題"]}];
+// --- 初始資料常數 (保留您的完整資料) ---
+const RATED_SOURCE = [{r:6,items:["Lycoris Recoil 莉可麗絲 Friends are thieves of time","藥師少女的獨語 第二季","青春豬頭少年不會夢到聖誕服女郎","薰香花朵凛然綻放","Silent Witch 沉默魔女的秘密"]},{r:5,items:["青春之箱","結緣甘神神社","紫雲寺家的兄弟姊妹","戀上換裝娃娃 第2季","我們不可能成為戀人！絕對不行。（※似乎可行？）"]},{r:4,items:["黑岩目高不把我的可愛放在眼裡","妻子變成小學生","Love Live! Superstar!!","只想告訴你","群花綻放、彷如修羅","我和班上最討厭的女生結婚了","GATE 奇幻自衛隊","天久鷹央的推理病歷表","SAKAMOTO DAYS 坂本日常 第2季度"]},{r:3,items:["七大罪 啟示錄四騎士 第二季","聽說你們要結婚","轉生為第七王子","版本日常學園","默示錄","我的幸福婚約 第二季","炎炎消防隊 參之章 上半","小市民系列 第二季","男女之間存在純友情嗎？（不，不存在！）","章魚嗶的原罪","mono女孩","隨興旅-That's Journey-","盾之勇者成名錄 Season 4"]},{r:2,items:["的偵探這沒用","忍者與殺手的兩人生活","僕愛君愛","未來日記","雖然是公會的櫃檯小姐，但因為不想加班所以打算獨自討伐迷宮頭目","歡迎光臨流放者食堂！"]},{r:1,items:["公爵千金的家庭教師","精靈幻想記 第二季","魔法光源股份有限公司","時光沙漏MOMENTARY LILY","剎那之花","這個美術社大有問題"]}];
 const SEASONAL_SOURCE = [
-  {name:"2025 10月",items:["SPY×FAMILY 第三季","擁有超常技能的異世界流浪美食家 第二季","一拳超人 第三季","彈珠汽水瓶裡的千歲同學","對我垂涎欲滴的非人少女","我的英雄學院 FINAL","朋友的妹妹只纏著我","女騎士成為蠻族新娘","這裡是充滿笑容的職場","機械女僕‧瑪麗","不動聲色的柏田","野原廣志","跨越種族與你相戀","永久的黃昏","不擅吸血的吸血鬼","不中用的前輩","賽馬娘 灰髮灰姑娘","最後可以再拜託您一件事嗎"]},
-  {name:"2025 7月",items:["章魚嗶的原罪","戀上換裝娃娃 S2","Silent Witch","薰香花朵凛然綻放","SAKAMOTO DAYS S2","青春豬頭少年","盾之勇者 S4","轉生為第七王子 S2","怪獸8號 S2","住在拔作島上的我","我們不可能成為戀人","渡同學","9-nine-","BadGirl","出租女友 S4","歡迎光臨流放者食堂","Dr.STONE","和雨·和你","膽大黨 S2","遊樂場少女","公爵千金","歌聲是法式千層酥","最近的偵探這沒用"]},
-  {name:"2025 4月",items:["持續狩獵史萊姆","WITCH WATCH","賽馬娘 Cinderella Grey","男女之間存在純友情嗎","小市民系列 S2","直至魔女消逝","隨興旅","炎炎消防隊","mono女孩","九龍大眾浪漫","因為太完美而不可愛","記憶縫線","Summer Pockets","紫雲寺家","忍者與殺手","推理要在晚餐後","在棒球場抓住我","愛有點沉重","前橋魔女","這是妳與我的最後戰場","快藏好","拜託請穿上","ツインズひなひま","Lycoris Recoil"]},
-  {name:"2025 1月",items:["我獨自升級 S2","藥師少女 S2","我的幸福婚約 S2","100個女朋友 S2","新石紀 S4","異修羅 S2","天久鷹央","灰色幻影","Ave Mujica","MOMENTARY LILY","我和班上最討厭的女生結婚了","一桿青空","公會櫃檯小姐","群花綻放","青春特調","Unnamed Memory","沖繩喜歡上的女孩子","黑岩目高","歡迎來到日本","尼特女忍者","這公司有我喜歡的人","終究還是會戀愛","全修","版本日常"]}
+  {name:"2025 10月",items:["SPY×FAMILY 間諜家家酒 第三季","擁有超常技能的異世界流浪美食家 第二季","一拳超人 第三季","彈珠汽水瓶裡的千歲同學","對我垂涎欲滴的非人少女","我的英雄學院 FINAL SEASON","朋友的妹妹只纏著我","女騎士成為蠻族新娘","這裡是充滿笑容的職場。","機械女僕‧瑪麗","不動聲色的柏田與喜形於色的太田","野原廣志 午餐的流派","跨越種族與你相戀","永久的黃昏","不擅吸血的吸血鬼","不中用的前輩","賽馬娘 灰髮灰姑娘 第二季度","最後可以再拜託您一件事嗎"]},
+  {name:"2025 7月",items:["章魚嗶的原罪","戀上換裝娃娃 第2季","Silent Witch 沉默魔女的秘密","薰香花朵凛然綻放","SAKAMOTO DAYS 坂本日常 第2季度","青春豬頭少年不會夢到聖誕服女郎","盾之勇者成名錄 Season 4","轉生為第七王子，隨心所欲的魔法學習之路 第二季","怪獸8號 第2季","住在拔作島上的我該如何是好？","我們不可能成為戀人！絕對不行。（※似乎可行？）","渡同學的××瀕臨崩壞","9-nine- Ruler's Crown","BadGirl","出租女友 第4季","歡迎光臨流放者食堂！","Dr.STONE 新石紀 SCIENCE FUTURE 第2季度","和雨·和你","膽大黨 第二季","遊樂場少女的異文化交流","公爵千金的家庭教師","歌聲是法式千層酥","最近的偵探這沒用"]},
+  {name:"2025 4月",items:["持續狩獵史萊姆三百年，不知不覺就練到LV MAX 第二季","WITCH WATCH 魔女守護者","賽馬娘 シンデレラグレイ","男女之間存在純友情嗎？（不，不存在！）","小市民系列 第二季","直至魔女消逝","隨興旅-That's Journey-","炎炎消防隊 參之章","mono女孩","九龍大眾浪漫","因為太完美而不可愛而被解除婚約的聖女被賣到了鄰國","記憶縫線YOUR FORMA","Summer Pockets*","紫雲寺家的兄弟姊妹","忍者與殺手的兩人生活","推理要在晚餐後","在棒球場抓住我！","愛有點沉重的暗黑精靈從異世界緊追不放","前橋魔女","這是妳與我的最後戰場，或是開創世界的聖戰 第二季","快藏好！瑪奇娜同學！！","拜託請穿上 鷹峰同學","ツインズひなひま","Lycoris Recoil 莉可麗絲 Friends are thieves of time"]},
+  {name:"2025 1月",items:["我獨自升級 第二季","藥師少女的獨語 第二季","我的幸福婚約 第二季","超超超超超喜歡你的100個女朋友 第2季","新石紀 第四季","異修羅 第2季","天久鷹央的推理病歷表","灰色：幻影扳機","Bang Dream!Ave Mujica","MOMENTARY LILY 剎那之花","我和班上最討厭的女生結婚了","一桿青空","雖然是公會的櫃檯小姐，但因為不想加班所以打算獨自討伐迷宮頭目","群花綻放、彷如修羅","青春特調蜂蜜檸檬蘇打","Unnamed Memory 無名記憶 Act.2","在沖繩喜歡上的女孩子方言講太多太棘手了","黑岩目高不把我的可愛放在眼裡","歡迎來到日本，妖精小姐","我與尼特女忍者的莫名同居生活","這公司有我喜歡的人","終究、還是會戀愛","全修","版本日常"]},
+  {name:"2024 10月",items:["從零開始的異世界生活 第三季","平凡職業造就世界最強 第三季","地下城尋求邂逅","香格里拉 第二季","成為名留歷史的壞女人吧","當不成魔法師的女孩","結緣甘神神社","精靈幻想記 第二季","七大罪 啟示錄四騎士 第二季","魔法光源股份有限公司","常軌脫離","Love Live! Superstar!! 第3季","村井之戀","聽說你們要結婚","GOD.app第二季","青春之箱","妻子變成小學生","膽大黨"]},
+  {name:"2024 7月",items:["我推的孩子","不時輕聲地以俄語遮羞的鄰座艾莉同學","敗北女角太多了","小市民系列","化成菜葉化成花","義妹生活","2.5次元的誘惑","身為VTuber的我因為忘記關台而成了傳說","模擬後宮體驗","雙生戀情密不可分","曾經、魔法少女和邪惡相互為敵。","女神咖啡廳 第2季","異世界失格","地下城中的人","少女如草花般綻放","深夜中的一拳","杖與劍的魔劍譚","鹿乃子乃子乃子虎式單單"]},
+  {name:"2024 4月",items:["轉生史萊姆第三季","鬼滅之刃柱訓練","魔法科高校的劣等生第三季","為美好世界獻上祝福第三季","無職轉生第二季下半","蔚藍檔案","神明渴求著遊戲","聲優廣播的幕前幕後","搖曳露營第三季","我的英雄學院第七季","魔王學院的不適任著第二季下半","身為魔王的我娶了奴隸精靈為妻","夜晚的水母不會游泳","老夫老妻重返未來","恰如細雨般的戀歌","花野井同學與戀愛病","單人房、日照一般、附天使","怪獸8號"]},
+  {name:"2024 1月",items:["歡迎來到實力至上主義教室第三季","肌肉魔法使第二季","我內心的糟糕念頭第二季","公主殿下，拷問的時間到了","異修羅","愚蠢天使與惡魔共舞","反派千金等級99","輪迴第七次的惡役令孃","弱角友棋同學第二季","夢想成為魔法少女","指尖相處 戀戀不捨","北海道辣妹金古錐","治癒魔法的錯誤使用法","秒殺外掛太強了","婚戒物語","魔都精兵的奴隸","迷宮飯","月光下的異世界之旅","我獨自升級","異世界溫泉"]},
+  {name:"2023 10月",items:["進擊的巨人 完結後篇","賽馬娘 第三季","我想成為影之強者 第二季","盾之勇者 第三季","新石季 第二季","屍體如山的死亡遊戲 第二季","七大罪 啟示錄","轉生史萊姆 外傳","間諜家家酒 第二季","藥師少女的獨語","葬送的芙莉蓮","位於戀愛光譜極端的我們","超超超超超喜歡你的100個女朋友","家裡蹲吸血姬的鬱悶","凹凸魔女的親子日常","聖劍學院的魔劍使","16bit 的感動 ANOTHER LAYER"]},
+  {name:"2023 7月",items:["無職轉生第二季","咒術第二季","堀與宮村","政宗君的復仇第二季","我喜歡的女孩忘記帶眼鏡","七魔劍支配天下","其實我乃最強","謊言遊戲","出租女友第三季","死神少爺與黑女僕第二季","夢懷美夢的少年是現實主義者","公司的小小前輩","成為悲劇元兇的最強異端","黑暗集會","間諜教室 第二季","妙廟美少女","五等分的花架","殭屍100","Fate","我的幸福婚約"]},
+  {name:"2023 4月",items:["鬼滅之刃","新石紀","熊熊勇闖異世界","賽馬娘","總之就是很可愛","為這個世界獻上爆炎","肌肉魔法使","我推的孩子","勇者死了","第二次被異世界召喚","在異世界得到超強能力的我","轉生貴族的異世界冒險錄","我內心的可怕念頭","和山田君談場LV999的戀愛","女神咖啡廳","鄰人似銀河","百合是我的工作"]},
+  {name:"2023 1月",items:["怕痛的我把防禦力點滿","不要欺負我 長靜同學","魔王學員的不適認者","地錯","總神眷顧","虛構推理","間諜教室","擁有超常技能的異世界流浪美食家","久保同學不放過我","不當歐尼講","冰屬性男子與無表情女王","傲嬌反派千金立傑洛特","為了養老金去異世界存八萬金","關於我在無意間被隔壁的天使變成廢材這件事","最強陰陽師異世界轉生記"]}
 ];
 const RATING_TIERS = [{label:'⭐️⭐️⭐️⭐️⭐️⭐️ (神作)',value:6},{label:'⭐️⭐️⭐️⭐️⭐️ (必看)',value:5},{label:'⭐️⭐️⭐️⭐️ (推薦)',value:4},{label:'⭐️⭐️⭐️ (普通)',value:3},{label:'⭐️⭐️ (微妙)',value:2},{label:'⭐️ (雷作)',value:1},{label:'放棄 (棄番)',value:0},{label:'未評價',value:-1}];
 const normalize = (str) => str.replace(/[\s\u3000]/g, '').replace(/[（(].*?[)）]/g, '').replace(/[*^_^]/g, '').toLowerCase();
 
 const generateInitialData = () => {
   const history = [], seasonal = [], historyMap = new Set();
-  RATED_SOURCE.forEach(tier => tier.items.forEach(name => { const n=name.trim(); history.push({id:`h-${Math.random().toString(36).substr(2,9)}`,name:n,rating:tier.r,note:'',date:new Date().toISOString().split('T')[0],isCrossSeason:false}); historyMap.add(normalize(n)); }));
-  SEASONAL_SOURCE.forEach((s, i) => {
-    const isFuture = s.name.includes("2025 10月");
-    const items = s.items.map((n, j) => {
-      const clean = n.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim();
-      const norm = normalize(clean);
-      if(!isFuture && !historyMap.has(norm)) { history.push({id:`hu-${Math.random().toString(36).substr(2,9)}`,name:clean,rating:-1,note:'自動導入',date:new Date().toISOString().split('T')[0],isCrossSeason:false}); historyMap.add(norm); }
-      return {id:`s-${i}-${j}-${Math.random().toString(36).substr(2,5)}`,name:clean,note:'',isCrossSeason:false};
+  RATED_SOURCE.forEach(tier => {
+    tier.items.forEach(name => {
+      const cleanName = name.trim();
+      history.push({ id: `h-${Math.random().toString(36).substr(2, 9)}`, name: cleanName, rating: tier.r, note: '', date: new Date().toISOString().split('T')[0], isCrossSeason: false });
+      historyMap.add(normalize(cleanName));
     });
-    seasonal.push({id:`folder-${i}`,name:s.name,items});
   });
-  return {toWatch:[], seasonal, history};
+  SEASONAL_SOURCE.forEach((season, sIdx) => {
+    const isFutureSeason = season.name.includes("2025 10月");
+    const items = season.items.map((name, iIdx) => {
+      const cleanName = name.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim();
+      const normName = normalize(cleanName);
+      const isRated = historyMap.has(normName);
+      if (!isFutureSeason && !isRated) {
+        history.push({ id: `hu-${Math.random().toString(36).substr(2, 9)}`, name: cleanName, rating: -1, note: '自動導入 (未評價)', date: new Date().toISOString().split('T')[0], isCrossSeason: false });
+        historyMap.add(normName);
+      }
+      return { id: `s-${sIdx}-${iIdx}-${Math.random().toString(36).substr(2, 5)}`, name: cleanName, note: name.trim() !== cleanName ? name.trim() : '', isCrossSeason: false };
+    });
+    seasonal.push({ id: `folder-${sIdx}`, name: season.name, items: items });
+  });
+  return { toWatch: [], seasonal, history };
 };
 
 export default function App() {
@@ -44,6 +62,7 @@ export default function App() {
   const [data, setDataState] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -58,6 +77,8 @@ export default function App() {
     // 1. 監聽 Auth 狀態
     const unsubAuth = onAuthStateChanged(auth, (u) => {
       setUser(u);
+      setIsAuthChecking(false); // Auth 檢查完畢
+      
       if (u) {
         // 2. 登入後，監聽資料庫
         const docRef = doc(db, "users", u.uid, COLLECTION_NAME, "main");
@@ -82,10 +103,10 @@ export default function App() {
 
     // 3. 處理 Redirect 回來的結果 (手機登入關鍵)
     getRedirectResult(auth).then((result) => {
-       if (result) console.log("Redirect login success");
+       if (result) console.log("Redirect login success:", result.user);
     }).catch((error) => {
        console.error("Redirect error:", error);
-       setAuthError(error.message);
+       setAuthError("登入錯誤: " + error.message);
     });
 
     return () => unsubAuth();
@@ -104,7 +125,7 @@ export default function App() {
     setAuthError(null);
     setIsProcessing(true);
     try {
-      // 判斷裝置：手機用 Redirect，電腦用 Popup
+      // 手機優先使用 Redirect
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         await signInWithRedirect(auth, provider);
       } else {
@@ -112,7 +133,6 @@ export default function App() {
         setIsProcessing(false);
       }
     } catch (error) {
-      // 如果 Popup 失敗，自動嘗試 Redirect
       console.warn("Login fallback:", error);
       try {
         await signInWithRedirect(auth, provider);
@@ -123,7 +143,6 @@ export default function App() {
     }
   };
 
-  // --- Data Actions ---
   const handleGoogleSearch = (name) => window.open(`https://www.google.com/search?q=${encodeURIComponent(name)}`, '_blank');
   const requestDelete = (type, id, name, folderId) => setDeletingItem({ type, id, name, folderId });
   
@@ -176,17 +195,9 @@ export default function App() {
     setResetConfirm(false);
   };
 
-  // --- Fix: Added Missing Helper Functions ---
-  const openEditModal = (type, item, folderId = null) => {
-    setEditingItem({ type, item, listId: item.id, folderId });
-  };
-
-  const openRateModal = (item, source) => {
-    setRateModal({ isOpen: true, item, source });
-  };
-
   // --- Render ---
-  if (loading) return <div className="flex h-screen items-center justify-center text-gray-500">載入中...</div>;
+  if (isAuthChecking) return <div className="flex h-screen items-center justify-center text-gray-500">正在驗證身分...</div>;
+
   if (!user) return (
     <div className="flex flex-col h-screen items-center justify-center p-6 bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
       <div className="bg-white/10 p-8 rounded-2xl backdrop-blur-lg border border-white/20 text-center w-full max-w-sm shadow-xl">
@@ -200,6 +211,8 @@ export default function App() {
       </div>
     </div>
   );
+
+  if (loading) return <div className="flex h-screen items-center justify-center text-gray-500">載入資料中...</div>;
 
   return (
     <div className="min-h-screen pb-24 bg-[#f9fafb] text-gray-800 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
@@ -232,13 +245,14 @@ export default function App() {
 
       {/* Footer Info */}
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.2.1 ● 已同步</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.0 ● 已同步</span>
       </div>
 
       {/* Modals */}
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
       {deletingItem && <Modal title="刪除確認" onClose={()=>setDeletingItem(null)}><div className="text-center p-4"><p className="mb-4">確定刪除「{deletingItem.name}」？</p><div className="flex gap-2"><button onClick={()=>setDeletingItem(null)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={confirmDelete} className="flex-1 py-2 bg-red-600 text-white rounded">刪除</button></div></div></Modal>}
       {rateModal.isOpen && <Modal title={`完食評分：${rateModal.item.name}`} onClose={()=>setRateModal({isOpen:false})}><RateForm item={rateModal.item} onConfirm={confirmRate} onCancel={()=>setRateModal({isOpen:false})} /></Modal>}
+      {resetConfirm && <Modal title="重置確認" onClose={()=>setResetConfirm(false)}><div className="text-center p-4"><p className="mb-4 text-red-600 font-bold">警告：此操作將刪除所有自訂紀錄並還原至預設值。</p><div className="flex gap-2"><button onClick={()=>setResetConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={performReset} className="flex-1 py-2 bg-red-600 text-white rounded">確認重置</button></div></div></Modal>}
     </div>
   );
 }
@@ -275,10 +289,7 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
   
   const isWatched = (n) => history.some(h => h.name.replace(/\s/g,'') === n.replace(/\s/g,''));
   const toggleSel = (id) => { const s = new Set(sel); if(s.has(id)) s.delete(id); else s.add(id); setSel(s); };
-  
-  // Fix: Use window.confirm instead of global confirm to fix build error
   const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(data.map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))); setSel(new Set()); setBatch(false); } };
-  
   const add = (fid, name) => onUpdate(data.map(f => f.id===fid ? {...f, items:[...f.items, {id:Date.now().toString(), name, note:'', isCrossSeason:false}]} : f));
   const importFolder = (items) => { onImport(items.map(i => ({...i, id:`imp-${Date.now()}-${Math.random()}`}))); alert("已匯入"); };
 
@@ -326,8 +337,6 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
   const groups = useMemo(() => { const g={}; RATING_TIERS.forEach(t=>g[t.value]=[]); filtered.forEach(i=>{ const r=i.rating??0; if(g[r]) g[r].push(i); }); return g; }, [filtered]);
   
   const toggleSel = (id) => { const s = new Set(sel); if(s.has(id)) s.delete(id); else s.add(id); setSel(s); };
-  
-  // Fix: Use window.confirm instead of global confirm to fix build error
   const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(list.filter(i => !sel.has(i.id))); setSel(new Set()); setBatch(false); } };
 
   return (

@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// 您的 Firebase Config
+// 您的 Firebase Config (anime-3f0d9)
 const firebaseConfig = {
   apiKey: "AIzaSyATf2_mlzCVd32h7QjG5Z78hW2UutzrViI",
   authDomain: "anime-3f0d9.firebaseapp.com",
