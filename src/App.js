@@ -232,7 +232,7 @@ export default function App() {
 
       {/* Footer Info */}
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.0.5 ● 已同步</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.2.1 ● 已同步</span>
       </div>
 
       {/* Modals */}
