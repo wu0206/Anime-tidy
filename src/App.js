@@ -33,7 +33,6 @@ const generateInitialData = () => {
     });
     seasonal.push({id:`folder-${i}`,name:s.name,items});
   });
-  // Fix: 加入 lastUpdated 初始值
   return {toWatch:[], seasonal, history, lastUpdated: Date.now()};
 };
 
@@ -46,7 +45,9 @@ export default function App() {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (!parsed.toWatch || !parsed.seasonal || !parsed.history) {
+        // 嚴格檢查結構，如果損壞則重置
+        if (!Array.isArray(parsed.toWatch) || !Array.isArray(parsed.seasonal) || !Array.isArray(parsed.history)) {
+          console.warn("本地資料結構損壞，重置為預設值");
           return generateInitialData();
         }
         return parsed;
@@ -82,7 +83,7 @@ export default function App() {
                 toWatch: cloudData.toWatch || [],
                 seasonal: cloudData.seasonal || [],
                 history: cloudData.history || [],
-                lastUpdated: cloudData.lastUpdated || 0 // 讀取雲端時間
+                lastUpdated: cloudData.lastUpdated || 0
             };
 
             // --- 版本衝突檢查 ---
@@ -94,21 +95,17 @@ export default function App() {
                 }
             } catch(e) {}
 
-            // 如果「本地時間」比「雲端時間」還新 (大於 1秒以上)，代表還有資料沒上傳成功
-            // 這時候我們不要更新畫面，反而要強制把本地資料再推上去一次
-            if (localTime > safeData.lastUpdated + 1000) {
+            // 如果本地比雲端新，強制雲端更新 (防止雲端舊資料覆蓋本地新資料)
+            if (localTime > safeData.lastUpdated + 2000) {
                console.log("本地資料較新，略過雲端舊資料覆蓋，並嘗試補上傳...");
-               // 使用 localStorage 的資料強制覆蓋雲端
                const currentLocalData = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY));
                setDoc(docRef, currentLocalData).catch(console.error);
             } else {
-               // 只有雲端比較新，或兩邊一樣時，才更新本地畫面
                setDataState(safeData);
                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(safeData));
             }
           } else {
-            // 雲端沒資料，上傳初始資料
-            setDoc(docRef, data);
+            setDoc(docRef, data); // 雲端無資料，上傳當前
           }
           setLoading(false);
         }, (err) => {
@@ -125,18 +122,39 @@ export default function App() {
     return () => unsubAuth();
   }, []); 
 
-  // --- Update Data Helper (Fix: 自動寫入時間戳記) ---
-  const updateData = (newData) => {
-    // 1. 自動加入當前時間戳記
-    const dataWithTimestamp = { ...newData, lastUpdated: Date.now() };
-    
-    setDataState(dataWithTimestamp);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataWithTimestamp));
-    
-    if (user) {
-      // 2. 上傳帶有時間戳記的資料
-      setDoc(doc(db, "users", user.uid, COLLECTION_NAME, "main"), dataWithTimestamp).catch(console.error);
-    }
+  // --- Update Data Helper (修復版) ---
+  const updateData = (newDataOrUpdater) => {
+    setDataState((prevData) => {
+      // 1. 判斷傳入的是「新資料物件」還是「更新函數 (prev => ...)」
+      let newData;
+      if (typeof newDataOrUpdater === 'function') {
+        newData = newDataOrUpdater(prevData);
+      } else {
+        newData = newDataOrUpdater;
+      }
+
+      // 安全檢查：確保不會設為 undefined
+      if (!newData) {
+          console.error("更新失敗：新資料為空");
+          return prevData;
+      }
+
+      // 2. 加入時間戳記
+      const dataWithTimestamp = { ...newData, lastUpdated: Date.now() };
+      
+      // 3. 執行副作用 (儲存到 LocalStorage 和 Firebase)
+      // 注意：在 setState 裡做 side effect 並非 React 最佳實踐，但為了確保取得最新 state，這是最直接的修復方式
+      try {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataWithTimestamp));
+          if (user) {
+            setDoc(doc(db, "users", user.uid, COLLECTION_NAME, "main"), dataWithTimestamp).catch(console.error);
+          }
+      } catch (err) {
+          console.error("儲存失敗", err);
+      }
+
+      return dataWithTimestamp;
+    });
   };
 
   // --- Auth Actions ---
@@ -166,42 +184,47 @@ export default function App() {
   const confirmDelete = () => {
     if (!deletingItem || !data) return;
     const { type, id, folderId } = deletingItem;
-    const newData = { ...data };
-    
-    if (type === 'towatch') newData.toWatch = newData.toWatch.filter(i => i.id !== id);
-    else if (type === 'history') newData.history = newData.history.filter(i => i.id !== id);
-    else if (type === 'seasonal') {
-      const fIdx = newData.seasonal.findIndex(f => f.id === folderId);
-      if (fIdx > -1) newData.seasonal[fIdx].items = newData.seasonal[fIdx].items.filter(i => i.id !== id);
-    }
-    updateData(newData);
+    // 使用函數式更新確保安全
+    updateData(prev => {
+        const newData = { ...prev };
+        if (type === 'towatch') newData.toWatch = newData.toWatch.filter(i => i.id !== id);
+        else if (type === 'history') newData.history = newData.history.filter(i => i.id !== id);
+        else if (type === 'seasonal') {
+          const fIdx = newData.seasonal.findIndex(f => f.id === folderId);
+          if (fIdx > -1) newData.seasonal[fIdx].items = newData.seasonal[fIdx].items.filter(i => i.id !== id);
+        }
+        return newData;
+    });
     setDeletingItem(null);
   };
 
   const saveEdit = (item) => {
     const { type, listId, folderId } = editingItem;
-    const newData = { ...data };
-    if (type === 'towatch') newData.toWatch = newData.toWatch.map(i => i.id === listId ? { ...i, ...item } : i);
-    else if (type === 'history') newData.history = newData.history.map(i => i.id === listId ? { ...i, ...item } : i);
-    else if (type === 'seasonal') {
-      const fIdx = newData.seasonal.findIndex(f => f.id === folderId);
-      if (fIdx > -1) newData.seasonal[fIdx].items = newData.seasonal[fIdx].items.map(i => i.id === listId ? { ...i, ...item } : i);
-    }
-    updateData(newData);
+    updateData(prev => {
+        const newData = { ...prev };
+        if (type === 'towatch') newData.toWatch = newData.toWatch.map(i => i.id === listId ? { ...i, ...item } : i);
+        else if (type === 'history') newData.history = newData.history.map(i => i.id === listId ? { ...i, ...item } : i);
+        else if (type === 'seasonal') {
+          const fIdx = newData.seasonal.findIndex(f => f.id === folderId);
+          if (fIdx > -1) newData.seasonal[fIdx].items = newData.seasonal[fIdx].items.map(i => i.id === listId ? { ...i, ...item } : i);
+        }
+        return newData;
+    });
     setEditingItem(null);
   };
 
   const confirmRate = (rating, note) => {
     const { item, source } = rateModal;
-    const newData = { ...data };
     const normName = normalize(item.name);
     
-    newData.history = [{...item, id:`h-${Date.now()}`, rating, note, date:new Date().toISOString().split('T')[0]}, ...newData.history];
+    updateData(prev => {
+        const newData = { ...prev };
+        newData.history = [{...item, id:`h-${Date.now()}`, rating, note, date:new Date().toISOString().split('T')[0]}, ...newData.history];
+        if (source === 'towatch') newData.toWatch = newData.toWatch.filter(i => i.id !== item.id);
+        else if (source === 'seasonal') newData.toWatch = newData.toWatch.filter(i => normalize(i.name) !== normName);
+        return newData;
+    });
     
-    if (source === 'towatch') newData.toWatch = newData.toWatch.filter(i => i.id !== item.id);
-    else if (source === 'seasonal') newData.toWatch = newData.toWatch.filter(i => normalize(i.name) !== normName);
-    
-    updateData(newData);
     setRateModal({ isOpen: false, item: null });
   };
 
@@ -245,13 +268,14 @@ export default function App() {
       </nav>
 
       <main className="max-w-4xl mx-auto p-3">
-        {activeTab === 'towatch' && <ToWatchView list={data.toWatch || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
-        {activeTab === 'seasonal' && <SeasonalView data={data.seasonal || []} history={data.history || []} onUpdate={(newSeasonal)=>updateData({...data, seasonal: newSeasonal})} onImport={(items)=>updateData({...data, toWatch:[...data.toWatch, ...items]})} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
-        {activeTab === 'history' && <HistoryView list={data.history || []} onUpdate={(newHistory)=>updateData({...data, history: newHistory})} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
+        {/* Pass data carefully with fallbacks */}
+        {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
+        {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={(newSeasonal)=>updateData(prev=>({...prev, seasonal: newSeasonal}))} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
+        {activeTab === 'history' && <HistoryView list={data?.history || []} onUpdate={(newHistory)=>updateData(prev=>({...prev, history: newHistory}))} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.8 ● {user ? '已連線' : '本地模式'}</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.9 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
@@ -291,6 +315,7 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   const add = (e) => {
     e.preventDefault();
     if(!name.trim()) return;
+    // 使用函數式更新，現在 safe updateData 支援這種寫法了
     onUpdate(p => ({...p, toWatch:[{id:Date.now().toString(), name, note, isCrossSeason:isCross}, ...p.toWatch]}));
     setName(''); setNote(''); setIsCross(false);
   };
@@ -384,9 +409,12 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
     else setSel(new Set(visibleIds));
   };
 
-  const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(data.map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))); setSel(new Set()); setBatch(false); } };
-  const add = (fid, name, note, isCross) => onUpdate(data.map(f => f.id===fid ? {...f, items:[{id:Date.now().toString(), name, note, isCrossSeason:isCross}, ...f.items]} : f));
-  const createFolder = () => { if(!newFolderName.trim()) return; onUpdate([{id:`folder-${Date.now()}`, name:newFolderName, items:[]} ,...data]); setNewFolderName(''); };
+  const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(prev => ({...prev, seasonal: data.map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))})); setSel(new Set()); setBatch(false); } };
+  
+  // 修正 Add 方法：使用 prev function
+  const add = (fid, name, note, isCross) => onUpdate(prev => ({...prev, seasonal: data.map(f => f.id===fid ? {...f, items:[{id:Date.now().toString(), name, note, isCrossSeason:isCross}, ...f.items]} : f)}));
+  
+  const createFolder = () => { if(!newFolderName.trim()) return; onUpdate(prev => ({...prev, seasonal: [{id:`folder-${Date.now()}`, name:newFolderName, items:[]} ,...data]})); setNewFolderName(''); };
 
   return (
     <div className="space-y-4">
@@ -489,7 +517,7 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
     if (visibleIds.every(id => sel.has(id))) setSel(new Set());
     else setSel(new Set(visibleIds));
   };
-  const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(list.filter(i => !sel.has(i.id))); setSel(new Set()); setBatch(false); } };
+  const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(prev => ({...prev, history: list.filter(i => !sel.has(i.id))})); setSel(new Set()); setBatch(false); } };
 
   return (
     <div className="space-y-4">
