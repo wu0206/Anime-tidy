@@ -12,7 +12,7 @@ const LOCAL_STORAGE_KEY = "anime_tracker_local_backup";
 
 const Icons = { Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut, FilePlus };
 
-// --- 初始資料 (您提供的大型資料庫) ---
+// --- 評分資料來源 ---
 const RATED_SOURCE = [
   {r:6, items:[
     "Lycoris Recoil 莉可麗絲 Friends are thieves of time",
@@ -72,30 +72,28 @@ const RATED_SOURCE = [
   ]}
 ];
 
-// 將「2025 10月」單獨定義，因為要加入待看清單
-const CURRENT_SEASON_ITEMS = [
-  "SPY×FAMILY 間諜家家酒 第三季",
-  "擁有超常技能的異世界流浪美食家 第二季",
-  "一拳超人 第三季",
-  "彈珠汽水瓶裡的千歲同學",
-  "對我垂涎欲滴的非人少女",
-  "我的英雄學院 FINAL SEASON",
-  "朋友的妹妹只纏著我",
-  "女騎士成為蠻族新娘",
-  "這裡是充滿笑容的職場。",
-  "機械女僕‧瑪麗",
-  "不動聲色的柏田與喜形於色的太田",
-  "野原廣志 午餐的流派",
-  "跨越種族與你相戀",
-  "永久的黃昏",
-  "不擅吸血的吸血鬼",
-  "不中用的前輩",
-  "賽馬娘 灰髮灰姑娘 第二季度",
-  "最後可以再拜託您一件事嗎"
-];
-
+// --- 季節資料來源 ---
 const SEASONAL_SOURCE = [
-  {name:"2025 10月", items: CURRENT_SEASON_ITEMS},
+  {name:"2025 10月", items:[
+    "SPY×FAMILY 間諜家家酒 第三季",
+    "擁有超常技能的異世界流浪美食家 第二季",
+    "一拳超人 第三季",
+    "彈珠汽水瓶裡的千歲同學",
+    "對我垂涎欲滴的非人少女",
+    "我的英雄學院 FINAL SEASON",
+    "朋友的妹妹只纏著我",
+    "女騎士成為蠻族新娘",
+    "這裡是充滿笑容的職場。",
+    "機械女僕‧瑪麗",
+    "不動聲色的柏田與喜形於色的太田",
+    "野原廣志 午餐的流派",
+    "跨越種族與你相戀",
+    "永久的黃昏",
+    "不擅吸血的吸血鬼",
+    "不中用的前輩",
+    "賽馬娘 灰髮灰姑娘 第二季度",
+    "最後可以再拜託您一件事嗎"
+  ]},
   {name:"2025 7月", items:[
     "章魚嗶的原罪",
     "戀上換裝娃娃 第2季",
@@ -333,52 +331,91 @@ const SEASONAL_SOURCE = [
     "最強陰陽師異世界轉生記"
   ]}
 ];
-const RATING_TIERS = [{label:'⭐️⭐️⭐️⭐️⭐️⭐️ (神作)',value:6},{label:'⭐️⭐️⭐️⭐️⭐️ (必看)',value:5},{label:'⭐️⭐️⭐️⭐️ (推薦)',value:4},{label:'⭐️⭐️⭐️ (普通)',value:3},{label:'⭐️⭐️ (微妙)',value:2},{label:'⭐️ (雷作)',value:1},{label:'放棄 (棄番)',value:0},{label:'未評價',value:-1}];
+
+// 增加「其他 (未評價)」選項
+const RATING_TIERS = [
+  {label:'⭐️⭐️⭐️⭐️⭐️⭐️ (神作)',value:6},
+  {label:'⭐️⭐️⭐️⭐️⭐️ (必看)',value:5},
+  {label:'⭐️⭐️⭐️⭐️ (推薦)',value:4},
+  {label:'⭐️⭐️⭐️ (普通)',value:3},
+  {label:'⭐️⭐️ (微妙)',value:2},
+  {label:'⭐️ (雷作)',value:1},
+  {label:'其他 (未評價)',value:-1}, // 這裡修改了標籤
+  {label:'放棄 (棄番)',value:0}
+];
+
+// 正規化函數：去除空格、括號、符號，統一轉小寫，用來比對片名
 const normalize = (str) => str.replace(/[\s\u3000]/g, '').replace(/[（(].*?[)）]/g, '').replace(/[*^_^]/g, '').toLowerCase();
 
-// --- 初始資料產生器 (含資料處理) ---
+// --- 初始資料產生器 (含自動分類邏輯) ---
 const generateInitialData = () => {
   const history = [], seasonal = [], toWatch = [];
-  
-  // 1. 處理評分紀錄
+  const historyMap = new Set(); // 用來記錄已經存在歷史紀錄中的動畫 (避免重複)
+
+  // 1. 處理評分紀錄 (1~6星)
   RATED_SOURCE.forEach(tier => tier.items.forEach(name => { 
-    const cleanName = name.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim(); // 移除括號備註
-    history.push({
-        id:`h-${Math.random().toString(36).substr(2,9)}`,
-        name: cleanName,
-        rating:tier.r,
-        note: name.includes('需補') ? '需補前作' : '', // 自動偵測備註
-        date:new Date().toISOString().split('T')[0],
-        isCrossSeason: false
-    }); 
+    const cleanName = name.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim();
+    const normName = normalize(cleanName);
+    
+    // 如果尚未存在，則加入
+    if (!historyMap.has(normName)) {
+      history.push({
+          id:`h-${Math.random().toString(36).substr(2,9)}`,
+          name: cleanName,
+          rating: tier.r,
+          note: name.includes('需補') ? '需補前作' : '',
+          date: new Date().toISOString().split('T')[0],
+          isCrossSeason: false
+      });
+      historyMap.add(normName);
+    }
   }));
 
-  // 2. 處理季節列表
+  // 2. 處理季節列表 (與自動歸類未評價)
   SEASONAL_SOURCE.forEach((s, i) => {
+    // 建立季節資料夾結構
     const items = s.items.map((n, j) => {
-      // 偵測是否標記跨季
       const isCross = n.includes('（跨）') || n.includes('(跨)');
       const clean = n.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim();
       return {
           id:`s-${i}-${j}-${Math.random().toString(36).substr(2,5)}`,
           name:clean,
-          note: n !== clean ? n.replace(clean, '').replace(/[()（）]/g,'').trim() : '', // 保留備註在 note 欄位
+          note: n !== clean ? n.replace(clean, '').replace(/[()（）]/g,'').trim() : '',
           isCrossSeason: isCross
       };
     });
     seasonal.push({id:`folder-${i}`,name:s.name,items});
-  });
 
-  // 3. 自動將「2025 10月」的資料加入待看清單 (因為您說還未觀看)
-  CURRENT_SEASON_ITEMS.forEach((n) => {
-      const isCross = n.includes('（跨）');
-      const clean = n.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim();
-      toWatch.push({
-          id: `tw-${Math.random().toString(36).substr(2,9)}`,
-          name: clean,
-          note: '',
-          isCrossSeason: isCross
-      });
+    // 自動分類邏輯：
+    // 如果是「2025 10月」 -> 加入待看清單
+    if (s.name === "2025 10月") {
+       items.forEach(item => {
+         toWatch.push({
+            id: `tw-${Math.random().toString(36).substr(2,9)}`,
+            name: item.name,
+            note: item.note,
+            isCrossSeason: item.isCrossSeason
+         });
+       });
+    } 
+    // 如果是其他季度 (代表已看過) -> 檢查是否已評分，若無則加入「未評價」
+    else {
+       items.forEach(item => {
+          const normName = normalize(item.name);
+          if (!historyMap.has(normName)) {
+             // 沒在評分清單中，自動加入歷史紀錄，評分為 -1 (未評價)
+             history.push({
+                id:`h-auto-${Math.random().toString(36).substr(2,9)}`,
+                name: item.name,
+                rating: -1, // 對應「其他 (未評價)」
+                note: item.note,
+                date: new Date().toISOString().split('T')[0],
+                isCrossSeason: item.isCrossSeason
+             });
+             historyMap.add(normName);
+          }
+       });
+    }
   });
 
   return {toWatch, seasonal, history, lastUpdated: Date.now()};
@@ -568,7 +605,7 @@ export default function App() {
   };
 
   const performReset = () => {
-    // 強制重置為代碼中定義的 generateInitialData (包含您的完整清單)
+    // 強制重置 (觸發 generateInitialData 的自動歸類邏輯)
     updateData(generateInitialData());
     setResetConfirm(false);
   };
@@ -614,13 +651,13 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.0 ● {user ? '已連線' : '本地模式'}</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.1 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
       {deletingItem && <Modal title="刪除確認" onClose={()=>setDeletingItem(null)}><div className="text-center p-4"><p className="mb-4">確定刪除「{deletingItem.name}」？</p><div className="flex gap-2"><button onClick={()=>setDeletingItem(null)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={confirmDelete} className="flex-1 py-2 bg-red-600 text-white rounded">刪除</button></div></div></Modal>}
       {rateModal.isOpen && <Modal title={`完食評分：${rateModal.item.name}`} onClose={()=>setRateModal({isOpen:false})}><RateForm item={rateModal.item} onConfirm={confirmRate} onCancel={()=>setRateModal({isOpen:false})} /></Modal>}
-      {resetConfirm && <Modal title="重置確認" onClose={()=>setResetConfirm(false)}><div className="text-center p-4"><p className="mb-4 text-red-600 font-bold">警告：這會刪除目前紀錄，並還原成您剛剛提供的完整清單。</p><div className="flex gap-2"><button onClick={()=>setResetConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={performReset} className="flex-1 py-2 bg-red-600 text-white rounded">確認還原</button></div></div></Modal>}
+      {resetConfirm && <Modal title="重置確認" onClose={()=>setResetConfirm(false)}><div className="text-center p-4"><p className="mb-4 text-red-600 font-bold">警告：這會刪除目前紀錄，並還原成您剛剛提供的完整清單（包含自動分類）。</p><div className="flex gap-2"><button onClick={()=>setResetConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={performReset} className="flex-1 py-2 bg-red-600 text-white rounded">確認還原</button></div></div></Modal>}
     </div>
   );
 }
