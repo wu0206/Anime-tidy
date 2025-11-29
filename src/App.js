@@ -257,7 +257,7 @@ export default function App() {
   );
 }
 
-// --- Sub Components (Minimal) ---
+// --- Sub Components (Corrected Calls) ---
 function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   const [name, setName] = useState('');
   const [gachaResult, setGachaResult] = useState(null);
