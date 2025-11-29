@@ -3,16 +3,16 @@ import { auth, db } from './firebase';
 import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { 
-  Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, Dice5, AlertTriangle, Search, ListChecks, LogOut 
+  Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut 
 } from 'lucide-react';
 
-// --- 統一資料路徑 ---
+// --- 統一資料路徑 (確保同步) ---
 const COLLECTION_NAME = "anime_tracker_data";
 
 // --- 圖示元件 ---
-const Icons = { Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, Dice5, AlertTriangle, Search, ListChecks, LogOut, Google: () => <span className="font-bold text-lg">G</span> };
+const Icons = { Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut, Google: () => <span className="font-bold text-lg">G</span> };
 
-// --- 初始資料 ---
+// --- 初始資料常數 ---
 const RATED_SOURCE = [{r:6,items:["Lycoris Recoil 莉可麗絲 Friends are thieves of time","藥師少女的獨語 第二季","青春豬頭少年不會夢到聖誕服女郎","薰香花朵凛然綻放","Silent Witch 沉默魔女的秘密"]},{r:5,items:["青春之箱","結緣甘神神社","紫雲寺家的兄弟姊妹","戀上換裝娃娃 第2季","我們不可能成為戀人！絕對不行。（※似乎可行？）"]},{r:4,items:["黑岩目高不把我的可愛放在眼裡","妻子變成小學生","Love Live! Superstar!!","只想告訴你","群花綻放","我和班上最討厭的女生結婚了","GATE 奇幻自衛隊","天久鷹央","SAKAMOTO DAYS"]},{r:3,items:["七大罪","聽說你們要結婚","轉生為第七王子","版本日常學園","默示錄","我的幸福婚約","炎炎消防隊","小市民系列","男女之間存在純友情嗎","章魚嗶的原罪","mono女孩","隨興旅","盾之勇者"]},{r:2,items:["的偵探這沒用","忍者與殺手的兩人生活","僕愛君愛","未來日記","雖然是公會的櫃檯小姐","歡迎光臨流放者食堂"]},{r:1,items:["公爵千金的家庭教師","精靈幻想記","魔法光源","時光沙漏","剎那之花","這個美術社大有問題"]}];
 const SEASONAL_SOURCE = [
   {name:"2025 10月",items:["SPY×FAMILY 第三季","擁有超常技能","一拳超人 第三季","彈珠汽水瓶","對我垂涎欲滴","我的英雄學院 FINAL","朋友的妹妹","女騎士成為蠻族新娘","這裡是充滿笑容的職場","機械女僕","不動聲色的柏田","野原廣志","跨越種族","永久的黃昏","不擅吸血的吸血鬼","不中用的前輩","賽馬娘 灰髮","最後可以再拜託您一件事嗎"]},
@@ -78,13 +78,11 @@ export default function App() {
       }
     });
 
-    // 手機登入關鍵：檢查 Redirect 結果
     getRedirectResult(auth).then((result) => {
        if (result) console.log("Redirect login success");
     }).catch((error) => {
        console.error("Redirect error:", error);
-       // 這裡會顯示 unauthorized-domain 錯誤
-       setAuthError("登入失敗: " + error.message);
+       setAuthError(error.message);
     });
 
     return () => unsubAuth();
@@ -119,6 +117,8 @@ export default function App() {
       }
     }
   };
+  
+  const logout = () => signOut(auth);
 
   // --- Data Actions ---
   const handleGoogleSearch = (name) => window.open(`https://www.google.com/search?q=${encodeURIComponent(name)}`, '_blank');
@@ -156,9 +156,12 @@ export default function App() {
     const { item, source } = rateModal;
     const newData = { ...data };
     const normName = normalize(item.name);
+    
     newData.history = [{...item, id:`h-${Date.now()}`, rating, note, date:new Date().toISOString().split('T')[0]}, ...newData.history];
+    
     if (source === 'towatch') newData.toWatch = newData.toWatch.filter(i => i.id !== item.id);
     else if (source === 'seasonal') newData.toWatch = newData.toWatch.filter(i => normalize(i.name) !== normName);
+    
     updateData(newData);
     setRateModal({ isOpen: false, item: null });
   };
@@ -212,7 +215,7 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.2 ● 已同步</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.3 ● 已同步</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
