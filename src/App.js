@@ -332,7 +332,6 @@ const SEASONAL_SOURCE = [
   ]}
 ];
 
-// 增加「其他 (未評價)」選項
 const RATING_TIERS = [
   {label:'⭐️⭐️⭐️⭐️⭐️⭐️ (神作)',value:6},
   {label:'⭐️⭐️⭐️⭐️⭐️ (必看)',value:5},
@@ -369,7 +368,7 @@ const generateInitialData = () => {
     }
   }));
 
-  // 2. 處理季節列表 (與自動歸類未評價)
+  // 2. 處理季節列表
   SEASONAL_SOURCE.forEach((s, i) => {
     const items = s.items.map((n, j) => {
       const isCross = n.includes('（跨）') || n.includes('(跨)');
@@ -505,8 +504,9 @@ export default function App() {
         newData = newDataOrUpdater;
       }
 
-      if (!newData) {
-          console.error("更新失敗：新資料為空");
+      // 極端防護：確保資料完整性
+      if (!newData || !Array.isArray(newData.seasonal)) {
+          console.error("更新失敗：資料異常", newData);
           return prevData;
       }
 
@@ -635,13 +635,16 @@ export default function App() {
       </nav>
 
       <main className="max-w-4xl mx-auto p-3">
+        {/* 主要修復點：移除多餘的包裝函數，直接傳遞 updateData */}
         {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
-        {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={(newSeasonal)=>updateData(prev=>({...prev, seasonal: newSeasonal}))} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
-        {activeTab === 'history' && <HistoryView list={data?.history || []} onUpdate={(newHistory)=>updateData(prev=>({...prev, history: newHistory}))} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
+        
+        {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={updateData} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
+        
+        {activeTab === 'history' && <HistoryView list={data?.history || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.2 ● {user ? '已連線' : '本地模式'}</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.3 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
@@ -772,9 +775,12 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
     else setSel(new Set(visibleIds));
   };
 
-  const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(prev => ({...prev, seasonal: data.map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))})); setSel(new Set()); setBatch(false); } };
-  const add = (fid, name, note, isCross) => onUpdate(prev => ({...prev, seasonal: data.map(f => f.id===fid ? {...f, items:[{id:Date.now().toString(), name, note, isCrossSeason:isCross}, ...f.items]} : f)}));
-  const createFolder = () => { if(!newFolderName.trim()) return; onUpdate(prev => ({...prev, seasonal: [{id:`folder-${Date.now()}`, name:newFolderName, items:[]} ,...data]})); setNewFolderName(''); };
+  // 使用 prev.seasonal 來確保更新安全
+  const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(prev => ({...prev, seasonal: (prev.seasonal||[]).map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))})); setSel(new Set()); setBatch(false); } };
+  const add = (fid, name, note, isCross) => onUpdate(prev => ({...prev, seasonal: (prev.seasonal||[]).map(f => f.id===fid ? {...f, items:[{id:Date.now().toString(), name, note, isCrossSeason:isCross}, ...f.items]} : f)}));
+  
+  // 修正：這裡使用了安全的 prev.seasonal
+  const createFolder = () => { if(!newFolderName.trim()) return; onUpdate(prev => ({...prev, seasonal: [{id:`folder-${Date.now()}`, name:newFolderName, items:[]} ,...(prev.seasonal||[])]})); setNewFolderName(''); };
 
   return (
     <div className="space-y-4">
@@ -876,7 +882,8 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
     if (visibleIds.every(id => sel.has(id))) setSel(new Set());
     else setSel(new Set(visibleIds));
   };
-  const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(prev => ({...prev, history: list.filter(i => !sel.has(i.id))})); setSel(new Set()); setBatch(false); } };
+  // 使用 prev.history 確保安全
+  const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(prev => ({...prev, history: (prev.history||[]).filter(i => !sel.has(i.id))})); setSel(new Set()); setBatch(false); } };
 
   return (
     <div className="space-y-4">
@@ -903,7 +910,8 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
         const items = groups[t.value]||[]; if(!items.length) return null;
         return (
           <div key={t.value}>
-            <h3 className="font-bold text-gray-800 border-b-2 border-indigo-100 mb-4 pb-2 flex justify-between items-end mt-8">
+            {/* 加大加深的標題樣式 */}
+            <h3 className="font-bold text-indigo-800 border-b-2 border-indigo-100 mb-4 pb-2 flex justify-between items-end mt-8">
               <span className="text-xl">{t.label}</span>
               <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">{items.length}</span>
             </h3>
