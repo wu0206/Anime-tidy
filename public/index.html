@@ -1,27 +1,663 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/logo.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-    <meta name="theme-color" content="#4f46e5" />
-    <meta name="description" content="動漫追番 Anime Tracker" />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo.svg" />
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <title>追番君</title>
-    <!-- 直接引入 Tailwind CSS 方便快速樣式 -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      body { 
-        background-color: #f9fafb; 
-        -webkit-tap-highlight-color: transparent;
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
+<head>
+  <meta charset="UTF-8">
+  <title>動漫追番 Anime Tracker (雲端同步版)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="追番君">
+  <link rel="apple-touch-icon" href="logo.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    
+    // =================================================================
+    // ⚠️ 您的 Firebase 設定 (anime-3f0d9)
+    // =================================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyATf2_mlzCVd32h7QjG5Z78hW2UutzrViI",
+      authDomain: "anime-3f0d9.firebaseapp.com",
+      projectId: "anime-3f0d9",
+      storageBucket: "anime-3f0d9.firebasestorage.app",
+      messagingSenderId: "1008548269040",
+      appId: "1:1008548269040:web:a0beddfd5e5435fec7eb35"
+    };
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      
+      window.db = db;
+      window.auth = auth;
+      window.doc = doc;
+      window.onSnapshot = onSnapshot;
+      window.setDoc = setDoc;
+      window.signInWithPopup = signInWithPopup;
+      window.signInWithRedirect = signInWithRedirect;
+      window.getRedirectResult = getRedirectResult;
+      window.GoogleAuthProvider = GoogleAuthProvider;
+      window.signOut = signOut;
+      window.onAuthStateChanged = onAuthStateChanged;
+    } catch (e) {
+      console.error("Firebase 初始化失敗", e);
+      alert("資料庫連線失敗，請檢查網路連線");
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f9fafb;
+      -webkit-tap-highlight-color: transparent;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .custom-checkbox { width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; border: 2px solid #d1d5db; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .custom-checkbox.checked { background-color: #ef4444; border-color: #ef4444; color: white; }
+    
+    /* 載入動畫 */
+    .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #4f46e5; width: 24px; height: 24px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+    @-webkit-keyframes spin { 0% { -webkit-transform: rotate(0deg); } 100% { -webkit-transform: rotate(360deg); } }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // --- 固定路徑名稱 (確保同步) ---
+    const COLLECTION_NAME = "anime_tracker_data";
+
+    // --- 圖示 ---
+    const Icons = {
+      Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
+      Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>,
+      Trash2: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
+      FolderPlus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 2H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>,
+      PlayCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>,
+      Save: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+      Edit3: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>,
+      X: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+      List: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+      Folder: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 2H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>,
+      Clock: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+      Trophy: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>,
+      ExternalLink: () => <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>,
+      Dice5: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M16 8h.01"/><path d="M8 8h.01"/><path d="M8 16h.01"/><path d="M16 16h.01"/><path d="M12 12h.01"/></svg>,
+      Pencil: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>,
+      AlertTriangle: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+      Search: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
+      ListChecks: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>,
+      LogOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+      Google: () => <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg"><g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)"><path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z"/><path fill="#34A853" d="M -14.754 63.239 C -11.514 63.239 -8.804 62.159 -6.824 60.329 L -10.684 57.329 C -11.764 58.049 -13.134 58.489 -14.754 58.489 C -17.884 58.489 -20.534 56.379 -21.484 53.529 L -25.464 53.529 L -25.464 56.619 C -23.494 60.539 -19.444 63.239 -14.754 63.239 Z"/><path fill="#FBBC05" d="M -21.484 53.529 C -21.734 52.809 -21.864 52.039 -21.864 51.239 C -21.864 50.439 -21.724 49.669 -21.484 48.949 L -21.484 45.859 L -25.464 45.859 C -26.284 47.479 -26.754 49.299 -26.754 51.239 C -26.754 53.179 -26.284 54.999 -25.464 56.619 L -21.484 53.529 Z"/><path fill="#EA4335" d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z"/></g></svg>
+    };
+
+    // --- 資料庫 ---
+    const RATED_SOURCE = [{r:6,items:["Lycoris Recoil 莉可麗絲 Friends are thieves of time","藥師少女的獨語 第二季","青春豬頭少年不會夢到聖誕服女郎","薰香花朵凛然綻放","Silent Witch 沉默魔女的秘密"]},{r:5,items:["青春之箱","結緣甘神神社","紫雲寺家的兄弟姊妹","戀上換裝娃娃 第2季","我們不可能成為戀人！絕對不行。（※似乎可行？）"]},{r:4,items:["黑岩目高不把我的可愛放在眼裡","妻子變成小學生","Love Live! Superstar!!","只想告訴你","群花綻放、彷如修羅","我和班上最討厭的女生結婚了","GATE 奇幻自衛隊","天久鷹央的推理病歷表","SAKAMOTO DAYS 坂本日常 第2季度"]},{r:3,items:["七大罪 啟示錄四騎士 第二季","聽說你們要結婚","轉生為第七王子","版本日常學園","默示錄","我的幸福婚約 第二季","炎炎消防隊 參之章 上半","小市民系列 第二季","男女之間存在純友情嗎？（不，不存在！）","章魚嗶的原罪","mono女孩","隨興旅-That's Journey-","盾之勇者成名錄 Season 4"]},{r:2,items:["的偵探這沒用","忍者與殺手的兩人生活","僕愛君愛","未來日記","雖然是公會的櫃檯小姐，但因為不想加班所以打算獨自討伐迷宮頭目","歡迎光臨流放者食堂！"]},{r:1,items:["公爵千金的家庭教師","精靈幻想記 第二季","魔法光源股份有限公司","時光沙漏MOMENTARY LILY","剎那之花","這個美術社大有問題"]}];
+    const SEASONAL_SOURCE = [{name:"2025 10月",items:["SPY×FAMILY 間諜家家酒 第三季","擁有超常技能的異世界流浪美食家 第二季","一拳超人 第三季","彈珠汽水瓶裡的千歲同學","對我垂涎欲滴的非人少女","我的英雄學院 FINAL SEASON","朋友的妹妹只纏著我","女騎士成為蠻族新娘","這裡是充滿笑容的職場。","機械女僕‧瑪麗","不動聲色的柏田與喜形於色的太田","野原廣志 午餐的流派","跨越種族與你相戀","永久的黃昏","不擅吸血的吸血鬼","不中用的前輩","賽馬娘 灰髮灰姑娘 第二季度","最後可以再拜託您一件事嗎"]},{name:"2025 7月",items:["章魚嗶的原罪","戀上換裝娃娃 第2季","Silent Witch 沉默魔女的秘密","薰香花朵凛然綻放","SAKAMOTO DAYS 坂本日常 第2季度","青春豬頭少年不會夢到聖誕服女郎","盾之勇者成名錄 Season 4","轉生為第七王子，隨心所欲的魔法學習之路 第二季","怪獸8號 第2季","住在拔作島上的我該如何是好？","我們不可能成為戀人！絕對不行。（※似乎可行？）","渡同學的××瀕臨崩壞","9-nine- Ruler's Crown","BadGirl","出租女友 第4季","歡迎光臨流放者食堂！","Dr.STONE 新石紀 SCIENCE FUTURE 第2季度","和雨·和你","膽大黨 第二季","遊樂場少女的異文化交流","公爵千金的家庭教師","歌聲是法式千層酥","最近的偵探這沒用"]},{name:"2025 4月",items:["持續狩獵史萊姆三百年，不知不覺就練到LV MAX 第二季","WITCH WATCH 魔女守護者","賽馬娘 シンデレラグレイ","男女之間存在純友情嗎？（不，不存在！）","小市民系列 第二季","直至魔女消逝","隨興旅-That's Journey-","炎炎消防隊 參之章","mono女孩","九龍大眾浪漫","因為太完美而不可愛而被解除婚約的聖女被賣到了鄰國","記憶縫線YOUR FORMA","Summer Pockets*","紫雲寺家的兄弟姊妹","忍者與殺手的兩人生活","推理要在晚餐後","在棒球場抓住我！","愛有點沉重的暗黑精靈從異世界緊追不放","前橋魔女","這是妳與我的最後戰場，或是開創世界的聖戰 第二季","快藏好！瑪奇娜同學！！","拜託請穿上 鷹峰同學","ツインズひなひま","Lycoris Recoil 莉可麗絲 Friends are thieves of time"]},{name:"2025 1月",items:["我獨自升級 第二季","藥師少女的獨語 第二季","我的幸福婚約 第二季","超超超超超喜歡你的100個女朋友 第2季","新石紀 第四季","異修羅 第2季","天久鷹央的推理病歷表","灰色：幻影扳機","Bang Dream!Ave Mujica","MOMENTARY LILY 剎那之花","我和班上最討厭的女生結婚了","一桿青空","雖然是公會的櫃檯小姐，但因為不想加班所以打算獨自討伐迷宮頭目","群花綻放、彷如修羅","青春特調蜂蜜檸檬蘇打","Unnamed Memory 無名記憶 Act.2","在沖繩喜歡上的女孩子方言講太多太棘手了","黑岩目高不把我的可愛放在眼裡","歡迎來到日本，妖精小姐","我與尼特女忍者的莫名同居生活","這公司有我喜歡的人","終究、還是會戀愛","全修","版本日常"]},{name:"2024 10月",items:["從零開始的異世界生活 第三季","平凡職業造就世界最強 第三季","地下城尋求邂逅","香格里拉 第二季","成為名留歷史的壞女人吧","當不成魔法師的女孩","結緣甘神神社","精靈幻想記 第二季","七大罪 啟示錄四騎士 第二季","魔法光源股份有限公司","常軌脫離","Love Live! Superstar!! 第3季","村井之戀","聽說你們要結婚","GOD.app第二季","青春之箱","妻子變成小學生","膽大黨"]},{name:"2024 7月",items:["我推的孩子","不時輕聲地以俄語遮羞的鄰座艾莉同學","敗北女角太多了","小市民系列","化成菜葉化成花","義妹生活","2.5次元的誘惑","身為VTuber的我因為忘記關台而成了傳說","模擬後宮體驗","雙生戀情密不可分","曾經、魔法少女和邪惡相互為敵。","女神咖啡廳 第2季","異世界失格","地下城中的人","少女如草花般綻放","深夜中的一拳","杖與劍的魔劍譚","鹿乃子乃子乃子虎式單單"]},{name:"2024 4月",items:["轉生史萊姆第三季","鬼滅之刃柱訓練","魔法科高校的劣等生第三季","為美好世界獻上祝福第三季","無職轉生第二季下半","蔚藍檔案","神明渴求著遊戲","聲優廣播的幕前幕後","搖曳露營第三季","我的英雄學院第七季","魔王學院的不適任著第二季下半","身為魔王的我娶了奴隸精靈為妻","夜晚的水母不會游泳","老夫老妻重返未來","恰如細雨般的戀歌","花野井同學與戀愛病","單人房、日照一般、附天使","怪獸8號"]},{name:"2024 1月",items:["歡迎來到實力至上主義教室第三季","肌肉魔法使第二季","我內心的糟糕念頭第二季","公主殿下，拷問的時間到了","異修羅","愚蠢天使與惡魔共舞","反派千金等級99","輪迴第七次的惡役令孃","弱角友棋同學第二季","夢想成為魔法少女","指尖相處 戀戀不捨","北海道辣妹金古錐","治癒魔法的錯誤使用法","秒殺外掛太強了","婚戒物語","魔都精兵的奴隸","迷宮飯","月光下的異世界之旅","我獨自升級","異世界溫泉"]},{name:"2023 10月",items:["進擊的巨人 完結後篇","賽馬娘 第三季","我想成為影之強者 第二季","盾之勇者 第三季","新石季 第二季","屍體如山的死亡遊戲 第二季","七大罪 啟示錄","轉生史萊姆 外傳","間諜家家酒 第二季","藥師少女的獨語","葬送的芙莉蓮","位於戀愛光譜極端的我們","超超超超超喜歡你的100個女朋友","家裡蹲吸血姬的鬱悶","凹凸魔女的親子日常","聖劍學院的魔劍使","16bit 的感動 ANOTHER LAYER"]},{name:"2023 7月",items:["無職轉生第二季","咒術第二季","堀與宮村","政宗君的復仇第二季","我喜歡的女孩忘記帶眼鏡","七魔劍支配天下","其實我乃最強","謊言遊戲","出租女友第三季","死神少爺與黑女僕第二季","夢懷美夢的少年是現實主義者","公司的小小前輩","成為悲劇元兇的最強異端","黑暗集會","間諜教室 第二季","妙廟美少女","五等分的花架","殭屍100","Fate","我的幸福婚約"]},{name:"2023 4月",items:["鬼滅之刃","新石紀","熊熊勇闖異世界","賽馬娘","總之就是很可愛","為這個世界獻上爆炎","肌肉魔法使","我推的孩子","勇者死了","第二次被異世界召喚","在異世界得到超強能力的我","轉生貴族的異世界冒險錄","我內心的可怕念頭","和山田君談場LV999的戀愛","女神咖啡廳","鄰人似銀河","百合是我的工作"]},{name:"2023 1月",items:["怕痛的我把防禦力點滿","不要欺負我 長靜同學","魔王學員的不適認者","地錯","總神眷顧","虛構推理","間諜教室","擁有超常技能的異世界流浪美食家","久保同學不放過我","不當歐尼講","冰屬性男子與無表情女王","傲嬌反派千金立傑洛特","為了養老金去異世界存八萬金","關於我在無意間被隔壁的天使變成廢材這件事","最強陰陽師異世界轉生記"]}];
+    const RATING_TIERS = [{label:'⭐️⭐️⭐️⭐️⭐️⭐️ (神作)',value:6},{label:'⭐️⭐️⭐️⭐️⭐️ (必看)',value:5},{label:'⭐️⭐️⭐️⭐️ (推薦)',value:4},{label:'⭐️⭐️⭐️ (普通)',value:3},{label:'⭐️⭐️ (微妙)',value:2},{label:'⭐️ (雷作)',value:1},{label:'放棄 (棄番)',value:0},{label:'未評價',value:-1}];
+    const normalize = (str) => str.replace(/[\s\u3000]/g, '').replace(/[（(].*?[)）]/g, '').replace(/[*^_^]/g, '').toLowerCase();
+
+    const generateInitialData = () => {
+      const history = [], seasonal = [], historyMap = new Set();
+      RATED_SOURCE.forEach(tier => {
+        tier.items.forEach(name => {
+          const cleanName = name.trim();
+          history.push({ id: `h-${Math.random().toString(36).substr(2, 9)}`, name: cleanName, rating: tier.r, note: '', date: new Date().toISOString().split('T')[0], isCrossSeason: false });
+          historyMap.add(normalize(cleanName));
+        });
+      });
+      SEASONAL_SOURCE.forEach((season, sIdx) => {
+        const isFutureSeason = season.name.includes("2025 10月");
+        const items = season.items.map((name, iIdx) => {
+          const cleanName = name.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim();
+          const normName = normalize(cleanName);
+          const isRated = historyMap.has(normName);
+          if (!isFutureSeason && !isRated) {
+            history.push({ id: `hu-${Math.random().toString(36).substr(2, 9)}`, name: cleanName, rating: -1, note: '自動導入 (未評價)', date: new Date().toISOString().split('T')[0], isCrossSeason: false });
+            historyMap.add(normName);
+          }
+          return { id: `s-${sIdx}-${iIdx}-${Math.random().toString(36).substr(2, 5)}`, name: cleanName, note: name.trim() !== cleanName ? name.trim() : '', isCrossSeason: false };
+        });
+        seasonal.push({ id: `folder-${sIdx}`, name: season.name, items: items });
+      });
+      return { toWatch: [], seasonal, history };
+    };
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('towatch');
+      const [data, setDataState] = useState(null);
+      const [user, setUser] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [isAuthChecking, setIsAuthChecking] = useState(true); // 新增：Auth 檢查狀態
+      const [editingItem, setEditingItem] = useState(null);
+      const [deletingItem, setDeletingItem] = useState(null);
+      const [rateModal, setRateModal] = useState({ isOpen: false, item: null, source: null });
+      const [resetConfirm, setResetConfirm] = useState(false);
+      const [isConnected, setIsConnected] = useState(false);
+      const [authError, setAuthError] = useState(null);
+      const [isProcessing, setIsProcessing] = useState(false);
+
+      useEffect(() => {
+        if (!window.auth) return;
+
+        // 1. 先檢查 Redirect Result
+        window.getRedirectResult(window.auth)
+          .then((result) => {
+            if (result) console.log("Redirect login success:", result.user);
+          })
+          .catch((error) => {
+             console.error("Redirect login error:", error);
+             setAuthError("登入失敗: " + error.message);
+          })
+          .finally(() => {
+             // 2. 再監聽 Auth 狀態
+             const unsubAuth = window.onAuthStateChanged(window.auth, (u) => {
+                setUser(u);
+                setIsAuthChecking(false); // 檢查完畢
+                if (u) {
+                   syncData(u);
+                } else {
+                   setLoading(false);
+                }
+             });
+          });
+
+      }, []);
+
+      const syncData = (currentUser) => {
+        if (!currentUser || !window.db) return;
+        const docRef = window.doc(window.db, "users", currentUser.uid, COLLECTION_NAME, "main");
+        const unsubData = window.onSnapshot(docRef, (doc) => {
+            if (doc.exists()) {
+              setDataState(doc.data());
+              setIsConnected(true);
+            } else {
+              const initial = generateInitialData();
+              window.setDoc(docRef, initial);
+              setDataState(initial);
+              setIsConnected(true);
+            }
+            setLoading(false);
+        }, (error) => {
+            console.warn("Sync Error", error);
+            setIsConnected(false);
+            setLoading(false);
+        });
+      };
+
+      const setData = (newDataOrFn) => {
+        if (!data || !user) return;
+        const newData = typeof newDataOrFn === 'function' ? newDataOrFn(data) : newDataOrFn;
+        setDataState(newData); 
+        const docRef = window.doc(window.db, "users", user.uid, COLLECTION_NAME, "main");
+        window.setDoc(docRef, newData).catch(console.error);
+      };
+
+      const login = async () => {
+        const provider = new window.GoogleAuthProvider();
+        setAuthError(null);
+        setIsProcessing(true);
+        try {
+          if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+              await window.signInWithRedirect(window.auth, provider);
+          } else {
+              await window.signInWithPopup(window.auth, provider);
+              setIsProcessing(false);
+          }
+        } catch (error) {
+          console.log("Login fallback:", error);
+          try {
+             await window.signInWithRedirect(window.auth, provider);
+          } catch(e) {
+             setAuthError(e.message);
+             setIsProcessing(false);
+          }
+        }
+      };
+      
+      const logout = () => window.signOut(window.auth);
+      const handleGoogleSearch = (name) => window.open(`https://www.google.com/search?q=${encodeURIComponent(name)}`, '_blank');
+      const requestDelete = (type, id, name, folderId = null) => setDeletingItem({ type, id, name, folderId });
+      const confirmDelete = () => {
+        if (!deletingItem) return;
+        const { type, id, folderId } = deletingItem;
+        setData(prev => {
+          const newData = { ...prev };
+          if (type === 'towatch') newData.toWatch = newData.toWatch.filter(item => item.id !== id);
+          else if (type === 'history') newData.history = newData.history.filter(item => item.id !== id);
+          else if (type === 'seasonal' && folderId) {
+            const fIndex = newData.seasonal.findIndex(f => f.id === folderId);
+            if (fIndex > -1) newData.seasonal[fIndex].items = newData.seasonal[fIndex].items.filter(item => item.id !== id);
+          }
+          return newData;
+        });
+        setDeletingItem(null);
+      };
+      const saveEdit = (editedItem) => {
+        if (!editingItem) return;
+        const { type, listId, folderId } = editingItem;
+        setData(prev => {
+          const newData = { ...prev };
+          if (type === 'towatch') newData.toWatch = newData.toWatch.map(i => i.id === listId ? { ...i, ...editedItem } : i);
+          else if (type === 'history') newData.history = newData.history.map(i => i.id === listId ? { ...i, ...editedItem } : i);
+          else if (type === 'seasonal') {
+            const fIndex = newData.seasonal.findIndex(f => f.id === folderId);
+            if (fIndex > -1) newData.seasonal[fIndex].items = newData.seasonal[fIndex].items.map(i => i.id === listId ? { ...i, ...editedItem } : i);
+          }
+          return newData;
+        });
+        setEditingItem(null);
+      };
+      const openEditModal = (type, item, folderId = null) => setEditingItem({ type, listId: item.id, folderId, item: { ...item } });
+      const openRateModal = (item, source) => setRateModal({ isOpen: true, item: item, source: source });
+      const confirmRate = (rating, note) => {
+        const { item, source } = rateModal;
+        if (!item) return;
+        setData(prev => {
+          const newData = { ...prev };
+          const normalizedName = normalize(item.name);
+          newData.history = [{ ...item, id: `h-${Date.now()}`, rating: rating, note: note, date: new Date().toISOString().split('T')[0] }, ...newData.history];
+          if (source === 'towatch') newData.toWatch = newData.toWatch.filter(i => i.id !== item.id);
+          else if (source === 'seasonal') newData.toWatch = newData.toWatch.filter(i => normalize(i.name) !== normalizedName);
+          return newData;
+        });
+        setRateModal({ isOpen: false, item: null, source: null });
+      };
+      const handleResetClick = () => setResetConfirm(true);
+      const performReset = () => { setData(generateInitialData()); setResetConfirm(false); };
+
+      // --- 渲染邏輯 ---
+
+      // 1. 正在檢查登入狀態 -> 顯示全螢幕 Loading (避免閃爍)
+      if (isAuthChecking) {
+        return (
+          <div className="flex flex-col h-screen items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+             <div className="loader mb-4"></div>
+             <p>正在驗證身分...</p>
+          </div>
+        );
       }
-    </style>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-  </body>
+      
+      // 2. 確定未登入 -> 顯示登入畫面
+      if (!user) {
+        return (
+          <div className="flex flex-col h-screen items-center justify-center p-6 bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+            <div className="bg-white/10 p-8 rounded-2xl backdrop-blur-lg border border-white/20 text-center w-full max-w-sm shadow-2xl">
+              <Icons.PlayCircle />
+              <h1 className="text-3xl font-bold mt-4 mb-2">追番君 Sync</h1>
+              <p className="text-indigo-100 mb-8">請登入以同步您的追番紀錄</p>
+              {authError && <div className="bg-red-500/20 border border-red-400/50 p-3 rounded mb-4 text-sm text-red-100">{authError}</div>}
+              <button onClick={login} disabled={isProcessing} className={`w-full bg-white text-indigo-600 py-3 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-indigo-50 transition-all shadow-lg ${isProcessing ? 'opacity-50 cursor-wait' : ''}`}>
+                {isProcessing ? '處理中...' : <><Icons.Google /> 使用 Google 登入</>}
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // 3. 已登入但資料載入中 -> 顯示資料載入 Loading
+      if (loading) return <div className="flex h-screen items-center justify-center text-gray-500">載入資料中...</div>;
+      
+      // 4. 已登入但無資料 (理論上不會發生，因為有預設值)
+      if (!data) return <div className="flex h-screen items-center justify-center text-gray-500">初始化資料中...</div>;
+
+      // 5. 主畫面
+      return (
+        <div className="min-h-screen pb-24 relative">
+          <nav className="bg-indigo-600 text-white shadow-md sticky top-0 z-50 pt-[env(safe-area-inset-top)] -mt-[env(safe-area-inset-top)]">
+            <div className="max-w-4xl mx-auto px-4">
+              <div className="flex justify-between items-center h-16">
+                <h1 className="text-xl font-bold flex items-center gap-2"><Icons.PlayCircle /> 動漫追番</h1>
+                <div className="flex items-center gap-2">
+                   {user?.photoURL && <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full border-2 border-white/50" />}
+                   <button onClick={handleResetClick} className="text-xs bg-indigo-700 px-2 py-1 rounded">重置</button>
+                   <button onClick={logout} className="text-xs bg-red-500/80 px-2 py-1 rounded flex items-center gap-1"><Icons.LogOut /> 登出</button>
+                </div>
+              </div>
+              <div className="flex space-x-1 pb-0 hide-scrollbar overflow-x-auto">
+                {[{ id: 'towatch', label: '待看清單', icon: Icons.List }, { id: 'seasonal', label: '各季新番', icon: Icons.Folder }, { id: 'history', label: '觀看紀錄', icon: Icons.Clock }].map(tab => (
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-t-lg transition-colors text-sm font-medium whitespace-nowrap ${activeTab === tab.id ? 'bg-[#f9fafb] text-indigo-700 shadow-sm' : 'hover:bg-indigo-500 text-indigo-100'}`}>
+                    <tab.icon /> {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </nav>
+
+          <main className="max-w-4xl mx-auto p-4">
+            {activeTab === 'towatch' && <ToWatchView list={data.toWatch} setData={setData} handleSearch={handleGoogleSearch} requestDelete={requestDelete} openEditModal={openEditModal} openRateModal={openRateModal} />}
+            {activeTab === 'seasonal' && <SeasonalView seasonalData={data.seasonal} historyData={data.history} setData={setData} handleSearch={handleGoogleSearch} requestDelete={requestDelete} openEditModal={openEditModal} openRateModal={openRateModal} />}
+            {activeTab === 'history' && <HistoryView list={data.history} setData={setData} handleSearch={handleGoogleSearch} requestDelete={requestDelete} openEditModal={openEditModal} />}
+          </main>
+
+          <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+4px)] left-1/2 transform -translate-x-1/2 flex flex-col items-center pointer-events-none select-none opacity-50">
+             <span className="text-[10px] text-gray-400">v1.0.4 (Auth Fix)</span>
+             {isConnected ? <span className="text-[8px] text-green-500">● 已同步</span> : <span className="text-[8px] text-red-400">● 未連線</span>}
+          </div>
+
+          {editingItem && <Modal title="編輯" onClose={() => setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={() => setEditingItem(null)} /></Modal>}
+          {deletingItem && <Modal title="刪除確認" onClose={() => setDeletingItem(null)}><div className="text-center p-4"><p className="mb-4">確定要刪除「{deletingItem.name}」嗎？</p><div className="flex gap-2"><button onClick={() => setDeletingItem(null)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={confirmDelete} className="flex-1 py-2 bg-red-600 text-white rounded">刪除</button></div></div></Modal>}
+          {rateModal.isOpen && <Modal title={`評分：${rateModal.item.name}`} onClose={() => setRateModal({isOpen:false})}><RateForm item={rateModal.item} onConfirm={confirmRate} onCancel={() => setRateModal({isOpen:false})} /></Modal>}
+          {resetConfirm && <Modal title="重置確認" onClose={() => setResetConfirm(false)}><div className="text-center p-4"><p className="mb-4 text-red-600 font-bold">警告：此操作將刪除所有自訂紀錄並還原至預設值。</p><p className="mb-4">確定要執行嗎？</p><div className="flex gap-2"><button onClick={() => setResetConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={performReset} className="flex-1 py-2 bg-red-600 text-white rounded">確認重置</button></div></div></Modal>}
+        </div>
+      );
+    }
+
+    // --- 子元件 (ToWatchView) ---
+    function ToWatchView({ list, setData, handleSearch, requestDelete, openEditModal, openRateModal }) {
+      const [newItem, setNewItem] = useState({ name: '', note: '', isCrossSeason: false });
+      const [gachaResult, setGachaResult] = useState(null);
+      const handleAdd = (e) => { e.preventDefault(); if(!newItem.name.trim()) return; setData(p => ({ ...p, toWatch: [...p.toWatch, { ...newItem, id: Date.now().toString() }] })); setNewItem({ name: '', note: '', isCrossSeason: false }); };
+      const runGacha = () => { if(list.length===0) return alert("無資料"); const winner = list[Math.floor(Math.random() * list.length)]; setGachaResult({anime: winner, count: 50}); };
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><Icons.Plus /> 新增待看</h3>
+            <form onSubmit={handleAdd} className="flex flex-col gap-3">
+              <input type="text" placeholder="動漫名稱" className="w-full p-2 border rounded" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
+              <div className="flex gap-2"><input type="text" placeholder="備註" className="flex-1 p-2 border rounded" value={newItem.note} onChange={e => setNewItem({...newItem, note: e.target.value})} /><label className="flex items-center gap-2 px-2"><input type="checkbox" checked={newItem.isCrossSeason} onChange={e => setNewItem({...newItem, isCrossSeason: e.target.checked})} /><span className="text-sm">跨季</span></label></div>
+              <button className="bg-indigo-600 text-white py-2 rounded">加入清單</button>
+            </form>
+          </div>
+          <div className="flex justify-end"><button onClick={runGacha} className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-2 rounded-full shadow-lg font-bold"><Icons.Dice5 /> 隨機抽選</button></div>
+          <div className="space-y-3">{list.map(item => (
+            <div key={item.id} className="bg-white p-4 rounded-lg shadow-sm border flex items-start gap-3">
+              <button onClick={() => openRateModal(item, 'towatch')} className="mt-1 w-6 h-6 border-2 rounded flex items-center justify-center text-gray-300 hover:text-green-500 hover:border-green-500"><Icons.Check /></button>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between"><h4 onClick={() => handleSearch(item.name)} className="font-medium text-gray-800 truncate pr-2 cursor-pointer hover:text-indigo-600">{item.name}</h4><div className="flex gap-1"><button onClick={() => openEditModal('towatch', item)} className="p-1 text-gray-400"><Icons.Edit3 /></button><button onClick={() => requestDelete('towatch', item.id, item.name)} className="p-1 text-red-400"><Icons.Trash2 /></button></div></div>
+                <div className="flex gap-2 mt-1 text-sm text-gray-500 items-center">{item.isCrossSeason && <span className="bg-purple-100 text-purple-700 px-2 rounded text-xs">跨季</span>}<span>{item.note || '無備註'}</span></div>
+              </div>
+            </div>
+          ))}</div>
+          {gachaResult && <Modal title="抽選結果" onClose={() => setGachaResult(null)}><div className="text-center p-6"><h2 className="text-2xl font-bold mb-4">{gachaResult.anime.name}</h2><button onClick={() => setGachaResult(null)} className="w-full py-3 bg-gray-900 text-white rounded-xl">決定！</button></div></Modal>}
+        </div>
+      );
+    }
+
+    // --- Seasonal View (含批量管理) ---
+    function SeasonalView({ seasonalData, historyData, setData, handleSearch, requestDelete, openEditModal, openRateModal }) {
+      const [searchTerm, setSearchTerm] = useState('');
+      const [newFolder, setNewFolder] = useState('');
+      const [expanded, setExpanded] = useState({});
+      // Batch Mode States
+      const [isBatchMode, setIsBatchMode] = useState(false);
+      const [selectedIds, setSelectedIds] = useState(new Set()); // Stores item IDs
+      const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
+
+      const filteredData = useMemo(() => {
+        if (!searchTerm) return seasonalData;
+        const lower = searchTerm.toLowerCase();
+        return seasonalData.map(f => ({ ...f, items: f.items.filter(i => i.name.toLowerCase().includes(lower) || (i.note && i.note.includes(lower))) })).filter(f => f.items.length > 0);
+      }, [seasonalData, searchTerm]);
+
+      const isWatched = (name) => historyData.some(h => h.name.replace(/[\s]/g, '').toLowerCase() === name.replace(/[\s]/g, '').toLowerCase());
+
+      // Toggle Select Logic
+      const toggleSelect = (id) => {
+        const newSet = new Set(selectedIds);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setSelectedIds(newSet);
+      };
+
+      // Select All Visible Items
+      const selectAll = () => {
+        const newSet = new Set();
+        let allVisibleIds = [];
+        filteredData.forEach(f => {
+          if (searchTerm || isBatchMode || expanded[f.id]) {
+            f.items.forEach(i => allVisibleIds.push(i.id));
+          }
+        });
+
+        if (allVisibleIds.every(id => selectedIds.has(id)) && allVisibleIds.length > 0) {
+           setSelectedIds(new Set()); // Deselect all
+        } else {
+           allVisibleIds.forEach(id => newSet.add(id));
+           setSelectedIds(newSet);
+        }
+      };
+
+      const handleDeleteClick = () => {
+         if (selectedIds.size === 0) return;
+         setShowBatchDeleteConfirm(true);
+      };
+
+      const executeBatchDelete = () => {
+        setData(prev => {
+          const newSeasonal = prev.seasonal.map(folder => ({
+            ...folder,
+            items: folder.items.filter(item => !selectedIds.has(item.id))
+          }));
+          return { ...prev, seasonal: newSeasonal };
+        });
+        setSelectedIds(new Set());
+        setIsBatchMode(false);
+        setShowBatchDeleteConfirm(false);
+      };
+
+      const createFolder = (e) => { e.preventDefault(); if(newFolder.trim()) { setData(p => ({...p, seasonal: [{id:Date.now(), name:newFolder, items:[]}, ...p.seasonal]})); setNewFolder(''); } };
+      const addItem = (fid, item) => setData(p => ({...p, seasonal: p.seasonal.map(f => f.id===fid ? {...f, items:[...f.items, {...item, id:Date.now()}]} : f)}));
+      const importFolder = (e, f) => { e.stopPropagation(); setData(p => ({...p, toWatch:[...p.toWatch, ...f.items.map((i,idx)=>({...i, id:`imp-${Date.now()}-${idx}`}))]})); alert('已匯入'); };
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-3 rounded-lg shadow-sm border flex gap-2 items-center sticky top-0 z-10">
+            {/* 搜尋或批量操作頭部 */}
+            {!isBatchMode ? (
+              <>
+                <Icons.Search /><input type="text" placeholder="搜尋新番..." className="flex-1 outline-none" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                {searchTerm && <button onClick={()=>setSearchTerm('')}><Icons.X /></button>}
+                <button onClick={() => setIsBatchMode(true)} className="p-2 bg-gray-100 rounded hover:bg-gray-200 text-gray-600" title="批量管理"><Icons.ListChecks /></button>
+              </>
+            ) : (
+              <div className="flex items-center justify-between w-full">
+                <div className="flex gap-2">
+                  <button onClick={selectAll} className="text-sm bg-gray-100 px-3 py-1.5 rounded font-medium">全選</button>
+                  <span className="text-sm py-1.5 text-gray-500">已選 {selectedIds.size}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleDeleteClick} className={`text-sm px-3 py-1.5 rounded font-medium text-white ${selectedIds.size > 0 ? 'bg-red-600' : 'bg-red-300'}`} disabled={selectedIds.size === 0}>刪除</button>
+                  <button onClick={() => { setIsBatchMode(false); setSelectedIds(new Set()); }} className="text-sm bg-gray-200 px-3 py-1.5 rounded">取消</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!searchTerm && !isBatchMode && <div className="bg-white p-4 rounded-xl shadow-sm border flex gap-2"><Icons.FolderPlus /><form onSubmit={createFolder} className="flex-1 flex gap-2"><input className="flex-1 border rounded p-1" placeholder="新增季節" value={newFolder} onChange={e=>setNewFolder(e.target.value)} /><button className="bg-indigo-600 text-white px-3 rounded">新增</button></form></div>}
+          
+          <div className="space-y-4">{filteredData.map(f => {
+            const isOpen = (searchTerm || isBatchMode) ? true : expanded[f.id]; 
+            
+            // Calculate counts
+            const totalCount = f.items.length;
+            const watchedCount = f.items.filter(i => isWatched(i.name)).length;
+            
+            // Sort items: Unwatched first (false), Watched last (true)
+            const sortedItems = [...f.items].sort((a, b) => {
+                const wA = isWatched(a.name);
+                const wB = isWatched(b.name);
+                if (wA === wB) return 0;
+                return wA ? 1 : -1;
+            });
+
+            return (
+              <div key={f.id} className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div onClick={() => !searchTerm && !isBatchMode && setExpanded(p => ({...p, [f.id]: !p[f.id]}))} className="flex justify-between p-4 bg-gray-50 border-b cursor-pointer">
+                  <div className="font-bold flex items-center gap-2"><span className={isOpen?'rotate-90':''}>▶</span>{f.name} <span className="text-xs bg-gray-200 px-2 rounded-full">{watchedCount}/{totalCount}</span></div>
+                  {!searchTerm && !isBatchMode && <button onClick={(e)=>importFolder(e, f)} className="text-xs bg-blue-100 text-blue-700 px-2 rounded flex gap-1"><Icons.Save /> 匯入</button>}
+                </div>
+                {isOpen && <div className="p-4">
+                  {!searchTerm && !isBatchMode && <SeasonalForm onAdd={i => addItem(f.id, i)} />}
+                  <div className="mt-4 space-y-2">{sortedItems.map(i => (
+                    <div key={i.id} className={`flex gap-3 p-2 rounded border ${isWatched(i.name) ? 'bg-green-50 border-green-200' : 'bg-gray-50'}`}>
+                      {/* Checkbox or Status Icon */}
+                      <div className="mt-1 flex-shrink-0">
+                        {isBatchMode ? (
+                          <div onClick={() => toggleSelect(i.id)} className={`custom-checkbox cursor-pointer ${selectedIds.has(i.id) ? 'checked' : ''}`}>
+                            {selectedIds.has(i.id) && <Icons.Check />}
+                          </div>
+                        ) : (
+                          isWatched(i.name) ? <span className="text-green-600"><Icons.Check /></span> : <button onClick={()=>openRateModal(i, 'seasonal')} className="w-6 h-6 border-2 rounded hover:text-green-500"><Icons.Check /></button>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between">
+                          <span onClick={()=>!isBatchMode && handleSearch(i.name)} className={`font-medium truncate ${!isBatchMode && 'cursor-pointer hover:text-indigo-600'}`}>{i.name}</span>
+                          {!isBatchMode && <div className="flex gap-1 flex-shrink-0"><button onClick={()=>openEditModal('seasonal',i,f.id)} className="text-gray-400"><Icons.Edit3 /></button><button onClick={()=>requestDelete('seasonal',i.id,i.name,f.id)} className="text-red-400"><Icons.Trash2 /></button></div>}
+                        </div>
+                        <div className="text-sm text-gray-500">{i.isCrossSeason && <span className="bg-purple-100 px-1 rounded mr-1">跨</span>}{i.note}</div>
+                      </div>
+                    </div>
+                  ))}</div>
+                </div>}
+              </div>
+            );
+          })}</div>
+          {showBatchDeleteConfirm && <Modal title="批量刪除確認" onClose={() => setShowBatchDeleteConfirm(false)}><div className="text-center p-4"><p className="mb-4">確定要刪除選取的 {selectedIds.size} 個項目嗎？</p><div className="flex gap-2"><button onClick={() => setShowBatchDeleteConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={executeBatchDelete} className="flex-1 py-2 bg-red-600 text-white rounded">刪除</button></div></div></Modal>}
+        </div>
+      );
+    }
+
+    // --- History View (含批量管理) ---
+    function HistoryView({ list, setData, handleSearch, requestDelete, openEditModal }) {
+      const [term, setTerm] = useState('');
+      const [isBatchMode, setIsBatchMode] = useState(false);
+      const [selectedIds, setSelectedIds] = useState(new Set());
+      const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
+
+      const filtered = useMemo(() => term ? list.filter(i => i.name.toLowerCase().includes(term.toLowerCase())) : list, [list, term]);
+      const groups = useMemo(() => { const g={}; RATING_TIERS.forEach(t=>g[t.value]=[]); filtered.forEach(i=>{ const r=i.rating??0; if(g[r]) g[r].push(i); }); return g; }, [filtered]);
+
+      const toggleSelect = (id) => {
+        const newSet = new Set(selectedIds);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setSelectedIds(newSet);
+      };
+
+      const selectAll = () => {
+        const newSet = new Set();
+        const allVisibleIds = filtered.map(i => i.id);
+        if (allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id))) {
+           setSelectedIds(new Set());
+        } else {
+           allVisibleIds.forEach(id => newSet.add(id));
+           setSelectedIds(newSet);
+        }
+      };
+
+      const handleDeleteClick = () => {
+         if (selectedIds.size === 0) return;
+         setShowBatchDeleteConfirm(true);
+      };
+
+      const executeBatchDelete = () => {
+        setData(prev => {
+          const newHistory = prev.history.filter(item => !selectedIds.has(item.id));
+          return { ...prev, history: newHistory };
+        });
+        setSelectedIds(new Set());
+        setIsBatchMode(false);
+        setShowBatchDeleteConfirm(false);
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-3 rounded-lg shadow-sm border flex gap-2 items-center sticky top-0 z-10">
+             {!isBatchMode ? (
+              <>
+                <Icons.Search /><input placeholder="搜尋紀錄..." className="flex-1 outline-none" value={term} onChange={e=>setTerm(e.target.value)} />
+                {term && <button onClick={()=>setTerm('')}><Icons.X /></button>}
+                <button onClick={() => setIsBatchMode(true)} className="p-2 bg-gray-100 rounded hover:bg-gray-200 text-gray-600" title="批量管理"><Icons.ListChecks /></button>
+              </>
+             ) : (
+              <div className="flex items-center justify-between w-full">
+                <div className="flex gap-2">
+                  <button onClick={selectAll} className="text-sm bg-gray-100 px-3 py-1.5 rounded font-medium">全選</button>
+                  <span className="text-sm py-1.5 text-gray-500">已選 {selectedIds.size}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleDeleteClick} className={`text-sm px-3 py-1.5 rounded font-medium text-white ${selectedIds.size > 0 ? 'bg-red-600' : 'bg-red-300'}`} disabled={selectedIds.size === 0}>刪除</button>
+                  <button onClick={() => { setIsBatchMode(false); setSelectedIds(new Set()); }} className="text-sm bg-gray-200 px-3 py-1.5 rounded">取消</button>
+                </div>
+              </div>
+             )}
+          </div>
+
+          <div className="space-y-8">{RATING_TIERS.map(t => {
+            const items = groups[t.value] || [];
+            if(items.length===0) return null;
+            return (
+              <div key={t.value}>
+                <h3 className={`text-lg font-bold mb-3 border-b-2 flex justify-between ${t.value>=5?'border-yellow-400 text-yellow-700':t.value<=0?'border-gray-300 text-gray-500':'border-blue-300 text-blue-700'}`}><span>{t.label}</span><span className="text-sm font-normal bg-gray-100 px-2 rounded-full">{items.length}</span></h3>
+                <div className="grid gap-3">{items.map(i => (
+                  <div key={i.id} className="bg-white p-3 rounded shadow-sm border-l-4 flex gap-2">
+                    {isBatchMode && (
+                        <div className="flex items-center pr-2 border-r mr-2">
+                           <div onClick={() => toggleSelect(i.id)} className={`custom-checkbox cursor-pointer ${selectedIds.has(i.id) ? 'checked' : ''}`}>
+                              {selectedIds.has(i.id) && <Icons.Check />}
+                           </div>
+                        </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between">
+                        <span onClick={()=>!isBatchMode && handleSearch(i.name)} className={`font-medium truncate ${!isBatchMode && 'cursor-pointer hover:text-indigo-600'}`}>{i.name}</span>
+                        {!isBatchMode && <div className="flex gap-1 flex-shrink-0"><button onClick={()=>openEditModal('history',i)} className="text-gray-400"><Icons.Edit3 /></button><button onClick={()=>requestDelete('history',i.id,i.name)} className="text-red-400"><Icons.Trash2 /></button></div>}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">{i.note && <div className="bg-gray-50 p-1 rounded mb-1">{i.note}</div>}<div className="text-xs">{i.date} {i.isCrossSeason && ' (跨)'}</div></div>
+                    </div>
+                  </div>
+                ))}</div>
+              </div>
+            )
+          })}</div>
+          {showBatchDeleteConfirm && <Modal title="批量刪除確認" onClose={() => setShowBatchDeleteConfirm(false)}><div className="text-center p-4"><p className="mb-4">確定要刪除選取的 {selectedIds.size} 個項目嗎？</p><div className="flex gap-2"><button onClick={() => setShowBatchDeleteConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={executeBatchDelete} className="flex-1 py-2 bg-red-600 text-white rounded">刪除</button></div></div></Modal>}
+        </div>
+      );
+    }
+
+    // --- 表單元件 ---
+    function SeasonalForm({ onAdd }) {
+      const [d, setD] = useState({n:'', t:'', c:false});
+      const sub = (e) => { e.preventDefault(); if(d.n) { onAdd({name:d.n, note:d.t, isCrossSeason:d.c}); setD({n:'', t:'', c:false}); } };
+      return <form onSubmit={sub} className="flex gap-2 mb-4"><input className="flex-1 border rounded p-1" placeholder="名稱" value={d.n} onChange={e=>setD({...d,n:e.target.value})} /><input className="flex-1 border rounded p-1" placeholder="備註" value={d.t} onChange={e=>setD({...d,t:e.target.value})} /><label className="flex items-center"><input type="checkbox" checked={d.c} onChange={e=>setD({...d,c:e.target.checked})} /><span className="text-xs">跨</span></label><button className="bg-gray-800 text-white px-3 rounded text-sm">新增</button></form>;
+    }
+    
+    function RateForm({ item, onConfirm, onCancel }) {
+      const [r, setR] = useState(5); const [n, setN] = useState(item.note||'');
+      return <div className="space-y-4"><div><label className="block text-sm">評價</label><select value={r} onChange={e=>setR(Number(e.target.value))} className="w-full border rounded p-2">{RATING_TIERS.filter(t=>t.value!==-1).map(t=><option key={t.value} value={t.value}>{t.label}</option>)}</select></div><div><label className="block text-sm">備註</label><textarea value={n} onChange={e=>setN(e.target.value)} className="w-full border rounded p-2 h-24" /></div><div className="flex gap-2"><button onClick={onCancel} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={()=>onConfirm(r,n)} className="flex-1 py-2 bg-green-600 text-white rounded">確認</button></div></div>;
+    }
+
+    function EditForm({ initialData, onSave, onClose }) {
+      const [d, setD] = useState(initialData);
+      return <form onSubmit={e=>{e.preventDefault(); onSave(d);}} className="space-y-4"><div><label className="block text-sm">名稱</label><input className="w-full border rounded p-2" value={d.name} onChange={e=>setD({...d,name:e.target.value})} /></div><div><label className="block text-sm">備註</label><textarea className="w-full border rounded p-2 h-24" value={d.note} onChange={e=>setD({...d,note:e.target.value})} /></div><label className="flex gap-2"><input type="checkbox" checked={d.isCrossSeason} onChange={e=>setD({...d,isCrossSeason:e.target.checked})} /> 跨季</label><div className="flex gap-2"><button type="button" onClick={onClose} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button className="flex-1 py-2 bg-indigo-600 text-white rounded">儲存</button></div></form>;
+    }
+
+    function Modal({ title, children, onClose }) {
+      return <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4"><div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6"><div className="flex justify-between mb-4 border-b pb-2"><h3 className="text-xl font-bold">{title}</h3><button onClick={onClose}><Icons.X /></button></div>{children}</div></div>;
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
 </html>
