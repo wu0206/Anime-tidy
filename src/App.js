@@ -55,9 +55,11 @@ export default function App() {
 
   // --- Auth & Data Sync ---
   useEffect(() => {
+    // 監聽登入狀態改變
     const unsubAuth = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u) {
+        // 使用者已登入，開始同步資料
         const docRef = doc(db, "users", u.uid, COLLECTION_NAME, "main");
         const unsubData = onSnapshot(docRef, (docSnap) => {
           if (docSnap.exists()) {
@@ -78,8 +80,12 @@ export default function App() {
       }
     });
 
+    // 處理 Redirect 登入回調 (以防萬一用戶是透過 Redirect 登入的)
     getRedirectResult(auth).then((result) => {
-       if (result) console.log("Redirect login success");
+       if (result) {
+         console.log("Redirect login success");
+         // 這裡不需要特別做什麼，onAuthStateChanged 會處理
+       }
     }).catch((error) => {
        console.error("Redirect error:", error);
        setAuthError(error.message);
@@ -95,24 +101,30 @@ export default function App() {
     setDoc(doc(db, "users", user.uid, COLLECTION_NAME, "main"), newData).catch(console.error);
   };
 
-  // --- Auth Actions ---
+  // --- Auth Actions (改進版：優先使用 Popup) ---
   const login = async () => {
     const provider = new GoogleAuthProvider();
     setAuthError(null);
     setIsProcessing(true);
+
     try {
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        await signInWithRedirect(auth, provider);
-      } else {
-        await signInWithPopup(auth, provider);
-        setIsProcessing(false);
-      }
+      // 策略：所有裝置（包括手機）優先嘗試 Popup
+      // 這種方式在現代手機瀏覽器上體驗較好，不會因為跳頁導致狀態遺失
+      await signInWithPopup(auth, provider);
+      setIsProcessing(false);
     } catch (error) {
-      console.warn("Login fallback:", error);
-      try {
-        await signInWithRedirect(auth, provider);
-      } catch(e) {
-        setAuthError(e.message);
+      console.error("Login Error:", error);
+      
+      // 只有在 Popup 被明確阻擋時，才作為最後手段嘗試 Redirect
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch(e) {
+          setAuthError("登入失敗：" + e.message);
+          setIsProcessing(false);
+        }
+      } else {
+        setAuthError("登入錯誤：" + error.message);
         setIsProcessing(false);
       }
     }
@@ -171,7 +183,7 @@ export default function App() {
     setResetConfirm(false);
   };
 
-  // --- Missing Functions Fixed Here ---
+  // --- Modals Triggers ---
   const openEditModal = (type, item, folderId = null) => {
     setEditingItem({ type, listId: item.id, item, folderId });
   };
@@ -188,7 +200,16 @@ export default function App() {
         <Icons.PlayCircle className="w-16 h-16 mx-auto mb-4 text-white/80" />
         <h1 className="text-2xl font-bold mb-2">追番君 Sync</h1>
         <p className="text-white/60 mb-8 text-sm">登入以同步您的追番進度</p>
-        {authError && <div className="bg-red-500/20 p-2 rounded text-xs text-red-200 mb-4 break-all">{authError}</div>}
+        
+        {/* 顯示錯誤訊息 (支援斷行顯示) */}
+        {authError && (
+          <div className="bg-red-500/20 p-3 rounded text-xs text-red-100 mb-4 text-left break-words">
+            {authError.includes("auth/unauthorized-domain") 
+              ? "錯誤：網域未授權。請至 Firebase Console > Authentication > Settings > Authorized Domains 新增您的 Vercel 網址。"
+              : authError}
+          </div>
+        )}
+        
         <button onClick={login} disabled={isProcessing} className="w-full bg-white text-indigo-600 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors">
           {isProcessing ? '處理中...' : <><span className="font-bold text-lg">G</span> 使用 Google 登入</>}
         </button>
@@ -224,7 +245,7 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.4 ● 已同步</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.5 ● 已同步</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
