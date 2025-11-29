@@ -12,28 +12,376 @@ const LOCAL_STORAGE_KEY = "anime_tracker_local_backup";
 
 const Icons = { Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut, FilePlus };
 
-// --- 初始資料 ---
-const RATED_SOURCE = [{r:6,items:["Lycoris Recoil 莉可麗絲 Friends are thieves of time","藥師少女的獨語 第二季","青春豬頭少年不會夢到聖誕服女郎","薰香花朵凛然綻放","Silent Witch 沉默魔女的秘密"]},{r:5,items:["青春之箱","結緣甘神神社","紫雲寺家的兄弟姊妹","戀上換裝娃娃 第2季","我們不可能成為戀人！絕對不行。（※似乎可行？）"]},{r:4,items:["黑岩目高不把我的可愛放在眼裡","妻子變成小學生","Love Live! Superstar!!","只想告訴你","群花綻放","我和班上最討厭的女生結婚了","GATE 奇幻自衛隊","天久鷹央","SAKAMOTO DAYS"]},{r:3,items:["七大罪","聽說你們要結婚","轉生為第七王子","版本日常學園","默示錄","我的幸福婚約","炎炎消防隊","小市民系列","男女之間存在純友情嗎","章魚嗶的原罪","mono女孩","隨興旅","盾之勇者"]},{r:2,items:["的偵探這沒用","忍者與殺手的兩人生活","僕愛君愛","未來日記","雖然是公會的櫃檯小姐","歡迎光臨流放者食堂"]},{r:1,items:["公爵千金的家庭教師","精靈幻想記","魔法光源","時光沙漏","剎那之花","這個美術社大有問題"]}];
+// --- 初始資料 (您提供的大型資料庫) ---
+const RATED_SOURCE = [
+  {r:6, items:[
+    "Lycoris Recoil 莉可麗絲 Friends are thieves of time",
+    "藥師少女的獨語 第二季",
+    "青春豬頭少年不會夢到聖誕服女郎",
+    "薰香花朵凛然綻放",
+    "Silent Witch 沉默魔女的秘密"
+  ]},
+  {r:5, items:[
+    "青春之箱",
+    "結緣甘神神社",
+    "紫雲寺家的兄弟姊妹",
+    "戀上換裝娃娃 第2季",
+    "我們不可能成為戀人！絕對不行。（※似乎可行？）"
+  ]},
+  {r:4, items:[
+    "黑岩目高不把我的可愛放在眼裡",
+    "妻子變成小學生",
+    "Love Live! Superstar!!",
+    "只想告訴你",
+    "群花綻放、彷如修羅",
+    "我和班上最討厭的女生結婚了",
+    "GATE 奇幻自衛隊",
+    "天久鷹央的推理病歷表",
+    "SAKAMOTO DAYS 坂本日常 第2季度"
+  ]},
+  {r:3, items:[
+    "七大罪 啟示錄四騎士 第二季",
+    "聽說你們要結婚",
+    "轉生為第七王子",
+    "版本日常學園",
+    "默示錄",
+    "我的幸福婚約 第二季",
+    "炎炎消防隊 參之章 上半",
+    "小市民系列 第二季",
+    "男女之間存在純友情嗎？（不，不存在！）",
+    "章魚嗶的原罪",
+    "mono女孩",
+    "隨興旅-That's Journey-",
+    "盾之勇者成名錄 Season 4"
+  ]},
+  {r:2, items:[
+    "最近的偵探這沒用",
+    "忍者與殺手的兩人生活",
+    "僕愛君愛",
+    "未來日記",
+    "雖然是公會的櫃檯小姐，但因為不想加班所以打算獨自討伐迷宮頭目",
+    "歡迎光臨流放者食堂！"
+  ]},
+  {r:1, items:[
+    "公爵千金的家庭教師",
+    "精靈幻想記 第二季",
+    "魔法光源股份有限公司",
+    "時光沙漏MOMENTARY LILY",
+    "剎那之花",
+    "這個美術社大有問題"
+  ]}
+];
+
+// 將「2025 10月」單獨定義，因為要加入待看清單
+const CURRENT_SEASON_ITEMS = [
+  "SPY×FAMILY 間諜家家酒 第三季",
+  "擁有超常技能的異世界流浪美食家 第二季",
+  "一拳超人 第三季",
+  "彈珠汽水瓶裡的千歲同學",
+  "對我垂涎欲滴的非人少女",
+  "我的英雄學院 FINAL SEASON",
+  "朋友的妹妹只纏著我",
+  "女騎士成為蠻族新娘",
+  "這裡是充滿笑容的職場。",
+  "機械女僕‧瑪麗",
+  "不動聲色的柏田與喜形於色的太田",
+  "野原廣志 午餐的流派",
+  "跨越種族與你相戀",
+  "永久的黃昏",
+  "不擅吸血的吸血鬼",
+  "不中用的前輩",
+  "賽馬娘 灰髮灰姑娘 第二季度",
+  "最後可以再拜託您一件事嗎"
+];
+
 const SEASONAL_SOURCE = [
-  {name:"2025 10月",items:["SPY×FAMILY 第三季","擁有超常技能","一拳超人 第三季","彈珠汽水瓶","對我垂涎欲滴","我的英雄學院 FINAL","朋友的妹妹","女騎士成為蠻族新娘","這裡是充滿笑容的職場","機械女僕","不動聲色的柏田","野原廣志","跨越種族","永久的黃昏","不擅吸血的吸血鬼","不中用的前輩","賽馬娘 灰髮","最後可以再拜託您一件事嗎"]},
-  {name:"2025 7月",items:["章魚嗶的原罪","戀上換裝娃娃 S2","Silent Witch","薰香花朵凛然綻放","SAKAMOTO DAYS S2","青春豬頭少年","盾之勇者 S4","轉生為第七王子 S2","怪獸8號 S2","住在拔作島上的我","我們不可能成為戀人","渡同學","9-nine-","BadGirl","出租女友 S4","歡迎光臨流放者食堂","Dr.STONE","和雨·和你","膽大黨 S2","遊樂場少女","公爵千金","歌聲是法式千層酥","最近的偵探"]},
-  {name:"2025 4月",items:["持續狩獵史萊姆","WITCH WATCH","賽馬娘 Cinderella Grey","男女之間存在純友情嗎","小市民系列 S2","直至魔女消逝","隨興旅","炎炎消防隊","mono女孩","九龍大眾浪漫","因為太完美而不可愛","記憶縫線","Summer Pockets","紫雲寺家","忍者與殺手","推理要在晚餐後","在棒球場抓住我","愛有點沉重","前橋魔女","這是妳與我的最後戰場","快藏好","拜託請穿上","ツインズひなひま","Lycoris Recoil"]},
-  {name:"2025 1月",items:["我獨自升級 S2","藥師少女 S2","我的幸福婚約 S2","100個女朋友 S2","新石紀 S4","異修羅 S2","天久鷹央","灰色幻影","Ave Mujica","MOMENTARY LILY","我和班上最討厭的女生結婚了","一桿青空","公會櫃檯小姐","群花綻放","青春特調","Unnamed Memory","沖繩喜歡上的女孩子","黑岩目高","歡迎來到日本","尼特女忍者","這公司有我喜歡的人","終究還是會戀愛","全修","版本日常"]}
+  {name:"2025 10月", items: CURRENT_SEASON_ITEMS},
+  {name:"2025 7月", items:[
+    "章魚嗶的原罪",
+    "戀上換裝娃娃 第2季",
+    "Silent Witch 沉默魔女的秘密",
+    "薰香花朵凛然綻放",
+    "SAKAMOTO DAYS 坂本日常 第2季度",
+    "青春豬頭少年不會夢到聖誕服女郎",
+    "盾之勇者成名錄 Season 4",
+    "轉生為第七王子，隨心所欲的魔法學習之路 第二季",
+    "怪獸8號 第2季",
+    "住在拔作島上的我該如何是好？",
+    "我們不可能成為戀人！絕對不行。（※似乎可行？）",
+    "渡同學的××瀕臨崩壞",
+    "9-nine- Ruler's Crown",
+    "BadGirl",
+    "出租女友 第4季",
+    "歡迎光臨流放者食堂！",
+    "Dr.STONE 新石紀 SCIENCE FUTURE 第2季度",
+    "和雨·和你",
+    "膽大黨 第二季",
+    "遊樂場少女的異文化交流",
+    "公爵千金的家庭教師",
+    "歌聲是法式千層酥",
+    "最近的偵探這沒用"
+  ]},
+  {name:"2025 4月", items:[
+    "持續狩獵史萊姆三百年，不知不覺就練到LV MAX 第二季",
+    "WITCH WATCH 魔女守護者",
+    "賽馬娘 シンデレラグレイ",
+    "男女之間存在純友情嗎？（不，不存在！）",
+    "小市民系列 第二季",
+    "直至魔女消逝",
+    "隨興旅-That's Journey-",
+    "炎炎消防隊 參之章",
+    "mono女孩",
+    "九龍大眾浪漫",
+    "因為太完美而不可愛而被解除婚約的聖女被賣到了鄰國",
+    "記憶縫線YOUR FORMA",
+    "Summer Pockets*",
+    "紫雲寺家的兄弟姊妹",
+    "忍者與殺手的兩人生活",
+    "推理要在晚餐後",
+    "在棒球場抓住我！",
+    "愛有點沉重的暗黑精靈從異世界緊追不放",
+    "前橋魔女",
+    "這是妳與我的最後戰場，或是開創世界的聖戰 第二季",
+    "快藏好！瑪奇娜同學！！",
+    "拜託請穿上 鷹峰同學",
+    "ツインズひなひま",
+    "Lycoris Recoil 莉可麗絲 Friends are thieves of time"
+  ]},
+  {name:"2025 1月", items:[
+    "我獨自升級 第二季",
+    "藥師少女的獨語 第二季",
+    "我的幸福婚約 第二季",
+    "超超超超超喜歡你的100個女朋友 第2季",
+    "新石紀 第四季",
+    "異修羅 第2季",
+    "天久鷹央的推理病歷表",
+    "灰色：幻影扳機",
+    "Bang Dream!Ave Mujica",
+    "MOMENTARY LILY 剎那之花",
+    "我和班上最討厭的女生結婚了",
+    "一桿青空",
+    "雖然是公會的櫃檯小姐，但因為不想加班所以打算獨自討伐迷宮頭目",
+    "群花綻放、彷如修羅",
+    "青春特調蜂蜜檸檬蘇打",
+    "Unnamed Memory 無名記憶 Act.2",
+    "在沖繩喜歡上的女孩子方言講太多太棘手了",
+    "黑岩目高不把我的可愛放在眼裡",
+    "歡迎來到日本，妖精小姐",
+    "我與尼特女忍者的莫名同居生活",
+    "這公司有我喜歡的人",
+    "終究、還是會戀愛",
+    "全修",
+    "版本日常"
+  ]},
+  {name:"2024 10月", items:[
+    "從零開始的異世界生活 第三季",
+    "平凡職業造就世界最強 第三季（跨）",
+    "地下城尋求邂逅",
+    "香格里拉 第二季",
+    "成為名留歷史的壞女人吧",
+    "當不成魔法師的女孩",
+    "結緣甘神神社（跨）",
+    "精靈幻想記 第二季",
+    "七大罪 啟示錄四騎士 第二季",
+    "魔法光源股份有限公司",
+    "常軌脫離",
+    "Love Live! Superstar!! 第3季",
+    "村井之戀",
+    "聽說你們要結婚",
+    "GOD.app第二季（神明選拔）",
+    "青春之箱（跨）",
+    "妻子變成小學生",
+    "膽大黨"
+  ]},
+  {name:"2024 7月", items:[
+    "我推的孩子",
+    "不時輕聲地以俄語遮羞的鄰座艾莉同學",
+    "敗北女角太多了",
+    "小市民系列",
+    "化成菜葉化成花",
+    "義妹生活",
+    "2.5次元的誘惑",
+    "身為VTuber的我因為忘記關台而成了傳說",
+    "模擬後宮體驗",
+    "雙生戀情密不可分",
+    "曾經、魔法少女和邪惡相互為敵。",
+    "女神咖啡廳 第2季",
+    "異世界失格",
+    "地下城中的人",
+    "少女如草花般綻放",
+    "深夜中的一拳",
+    "杖與劍的魔劍譚",
+    "鹿乃子乃子乃子虎式單單"
+  ]},
+  {name:"2024 4月", items:[
+    "轉生史萊姆第三季",
+    "鬼滅之刃柱訓練",
+    "魔法科高校的劣等生第三季",
+    "為美好世界獻上祝福第三季",
+    "無職轉生第二季下半",
+    "蔚藍檔案",
+    "神明渴求著遊戲",
+    "聲優廣播的幕前幕後",
+    "搖曳露營第三季",
+    "我的英雄學院第七季",
+    "魔王學院的不適任著第二季下半",
+    "身為魔王的我娶了奴隸精靈為妻",
+    "夜晚的水母不會游泳",
+    "老夫老妻重返未來",
+    "恰如細雨般的戀歌",
+    "花野井同學與戀愛病",
+    "單人房、日照一般、附天使",
+    "怪獸8號"
+  ]},
+  {name:"2024 1月", items:[
+    "歡迎來到實力至上主義教室第三季",
+    "肌肉魔法使第二季",
+    "我內心的糟糕念頭第二季",
+    "公主殿下，拷問的時間到了",
+    "異修羅",
+    "愚蠢天使與惡魔共舞",
+    "反派千金等級99",
+    "輪迴第七次的惡役令孃",
+    "弱角友棋同學第二季",
+    "夢想成為魔法少女",
+    "指尖相處 戀戀不捨",
+    "北海道辣妹金古錐",
+    "治癒魔法的錯誤使用法",
+    "秒殺外掛太強了",
+    "婚戒物語",
+    "魔都精兵的奴隸",
+    "迷宮飯（跨）",
+    "月光下的異世界之旅（跨）",
+    "我獨自升級",
+    "異世界溫泉"
+  ]},
+  {name:"2023 10月", items:[
+    "進擊的巨人 完結後篇",
+    "賽馬娘 第三季",
+    "我想成為影之強者 第二季",
+    "盾之勇者 第三季",
+    "新石季 第二季",
+    "屍體如山的死亡遊戲 第二季",
+    "七大罪 啟示錄",
+    "轉生史萊姆 外傳",
+    "間諜家家酒 第二季",
+    "藥師少女的獨語",
+    "葬送的芙莉蓮",
+    "位於戀愛光譜極端的我們",
+    "超超超超超喜歡你的100個女朋友",
+    "家裡蹲吸血姬的鬱悶",
+    "凹凸魔女的親子日常",
+    "聖劍學院的魔劍使",
+    "16bit 的感動 ANOTHER LAYER"
+  ]},
+  {name:"2023 7月", items:[
+    "無職轉生第二季",
+    "咒術第二季",
+    "堀與宮村",
+    "政宗君的復仇第二季",
+    "我喜歡的女孩忘記帶眼鏡",
+    "七魔劍支配天下",
+    "其實我乃最強",
+    "謊言遊戲",
+    "出租女友第三季",
+    "死神少爺與黑女僕第二季",
+    "夢懷美夢的少年是現實主義者",
+    "公司的小小前輩",
+    "成為悲劇元兇的最強異端，最後頭目女王為了人民犧牲奉獻",
+    "黑暗集會",
+    "間諜教室 第二季",
+    "妙廟美少女",
+    "五等分的花架",
+    "殭屍100",
+    "Fate",
+    "我的幸福婚約"
+  ]},
+  {name:"2023 4月", items:[
+    "鬼滅之刃",
+    "新石紀",
+    "熊熊勇闖異世界",
+    "賽馬娘",
+    "總之就是很可愛",
+    "為這個世界獻上爆炎",
+    "肌肉魔法使",
+    "我推的孩子",
+    "勇者死了",
+    "第二次被異世界召喚",
+    "在異世界得到超強能力的我，到現實這樣無敵",
+    "轉生貴族的異世界冒險錄",
+    "我內心的可怕念頭",
+    "和山田君談場LV999的戀愛",
+    "女神咖啡廳",
+    "鄰人似銀河",
+    "百合是我的工作"
+  ]},
+  {name:"2023 1月", items:[
+    "怕痛的我把防禦力點滿",
+    "不要欺負我 長靜同學",
+    "魔王學員的不適認者",
+    "地錯",
+    "總神眷顧",
+    "虛構推理",
+    "間諜教室",
+    "擁有超常技能的異世界流浪美食家",
+    "久保同學不放過我",
+    "不當歐尼講",
+    "冰屬性男子與無表情女王",
+    "傲嬌反派千金立傑洛特",
+    "為了養老金去異世界存八萬金",
+    "關於我在無意間被隔壁的天使變成廢材這件事",
+    "最強陰陽師異世界轉生記"
+  ]}
 ];
 const RATING_TIERS = [{label:'⭐️⭐️⭐️⭐️⭐️⭐️ (神作)',value:6},{label:'⭐️⭐️⭐️⭐️⭐️ (必看)',value:5},{label:'⭐️⭐️⭐️⭐️ (推薦)',value:4},{label:'⭐️⭐️⭐️ (普通)',value:3},{label:'⭐️⭐️ (微妙)',value:2},{label:'⭐️ (雷作)',value:1},{label:'放棄 (棄番)',value:0},{label:'未評價',value:-1}];
 const normalize = (str) => str.replace(/[\s\u3000]/g, '').replace(/[（(].*?[)）]/g, '').replace(/[*^_^]/g, '').toLowerCase();
 
+// --- 初始資料產生器 (含資料處理) ---
 const generateInitialData = () => {
-  const history = [], seasonal = [], historyMap = new Set();
-  RATED_SOURCE.forEach(tier => tier.items.forEach(name => { const n=name.trim(); history.push({id:`h-${Math.random().toString(36).substr(2,9)}`,name:n,rating:tier.r,note:'',date:new Date().toISOString().split('T')[0],isCrossSeason:false}); historyMap.add(normalize(n)); }));
+  const history = [], seasonal = [], toWatch = [];
+  
+  // 1. 處理評分紀錄
+  RATED_SOURCE.forEach(tier => tier.items.forEach(name => { 
+    const cleanName = name.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim(); // 移除括號備註
+    history.push({
+        id:`h-${Math.random().toString(36).substr(2,9)}`,
+        name: cleanName,
+        rating:tier.r,
+        note: name.includes('需補') ? '需補前作' : '', // 自動偵測備註
+        date:new Date().toISOString().split('T')[0],
+        isCrossSeason: false
+    }); 
+  }));
+
+  // 2. 處理季節列表
   SEASONAL_SOURCE.forEach((s, i) => {
     const items = s.items.map((n, j) => {
+      // 偵測是否標記跨季
+      const isCross = n.includes('（跨）') || n.includes('(跨)');
       const clean = n.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim();
-      return {id:`s-${i}-${j}-${Math.random().toString(36).substr(2,5)}`,name:clean,note:'',isCrossSeason:false};
+      return {
+          id:`s-${i}-${j}-${Math.random().toString(36).substr(2,5)}`,
+          name:clean,
+          note: n !== clean ? n.replace(clean, '').replace(/[()（）]/g,'').trim() : '', // 保留備註在 note 欄位
+          isCrossSeason: isCross
+      };
     });
     seasonal.push({id:`folder-${i}`,name:s.name,items});
   });
-  return {toWatch:[], seasonal, history, lastUpdated: Date.now()};
+
+  // 3. 自動將「2025 10月」的資料加入待看清單 (因為您說還未觀看)
+  CURRENT_SEASON_ITEMS.forEach((n) => {
+      const isCross = n.includes('（跨）');
+      const clean = n.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim();
+      toWatch.push({
+          id: `tw-${Math.random().toString(36).substr(2,9)}`,
+          name: clean,
+          note: '',
+          isCrossSeason: isCross
+      });
+  });
+
+  return {toWatch, seasonal, history, lastUpdated: Date.now()};
 };
 
 export default function App() {
@@ -45,7 +393,6 @@ export default function App() {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // 嚴格檢查結構，如果損壞則重置
         if (!Array.isArray(parsed.toWatch) || !Array.isArray(parsed.seasonal) || !Array.isArray(parsed.history)) {
           console.warn("本地資料結構損壞，重置為預設值");
           return generateInitialData();
@@ -74,7 +421,6 @@ export default function App() {
     const unsubAuth = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u) {
-        // 使用者登入，連接 Firestore
         const docRef = doc(db, "users", u.uid, COLLECTION_NAME, "main");
         const unsubData = onSnapshot(docRef, (docSnap) => {
           if (docSnap.exists()) {
@@ -95,9 +441,8 @@ export default function App() {
                 }
             } catch(e) {}
 
-            // 如果本地比雲端新，強制雲端更新 (防止雲端舊資料覆蓋本地新資料)
             if (localTime > safeData.lastUpdated + 2000) {
-               console.log("本地資料較新，略過雲端舊資料覆蓋，並嘗試補上傳...");
+               console.log("本地資料較新，強制補上傳...");
                const currentLocalData = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY));
                setDoc(docRef, currentLocalData).catch(console.error);
             } else {
@@ -105,7 +450,7 @@ export default function App() {
                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(safeData));
             }
           } else {
-            setDoc(docRef, data); // 雲端無資料，上傳當前
+            setDoc(docRef, data);
           }
           setLoading(false);
         }, (err) => {
@@ -122,10 +467,9 @@ export default function App() {
     return () => unsubAuth();
   }, []); 
 
-  // --- Update Data Helper (修復版) ---
+  // --- Update Data Helper (修復版: 支援 function update) ---
   const updateData = (newDataOrUpdater) => {
     setDataState((prevData) => {
-      // 1. 判斷傳入的是「新資料物件」還是「更新函數 (prev => ...)」
       let newData;
       if (typeof newDataOrUpdater === 'function') {
         newData = newDataOrUpdater(prevData);
@@ -133,17 +477,13 @@ export default function App() {
         newData = newDataOrUpdater;
       }
 
-      // 安全檢查：確保不會設為 undefined
       if (!newData) {
           console.error("更新失敗：新資料為空");
           return prevData;
       }
 
-      // 2. 加入時間戳記
       const dataWithTimestamp = { ...newData, lastUpdated: Date.now() };
       
-      // 3. 執行副作用 (儲存到 LocalStorage 和 Firebase)
-      // 注意：在 setState 裡做 side effect 並非 React 最佳實踐，但為了確保取得最新 state，這是最直接的修復方式
       try {
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataWithTimestamp));
           if (user) {
@@ -184,7 +524,6 @@ export default function App() {
   const confirmDelete = () => {
     if (!deletingItem || !data) return;
     const { type, id, folderId } = deletingItem;
-    // 使用函數式更新確保安全
     updateData(prev => {
         const newData = { ...prev };
         if (type === 'towatch') newData.toWatch = newData.toWatch.filter(i => i.id !== id);
@@ -229,6 +568,7 @@ export default function App() {
   };
 
   const performReset = () => {
+    // 強制重置為代碼中定義的 generateInitialData (包含您的完整清單)
     updateData(generateInitialData());
     setResetConfirm(false);
   };
@@ -268,20 +608,19 @@ export default function App() {
       </nav>
 
       <main className="max-w-4xl mx-auto p-3">
-        {/* Pass data carefully with fallbacks */}
         {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
         {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={(newSeasonal)=>updateData(prev=>({...prev, seasonal: newSeasonal}))} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
         {activeTab === 'history' && <HistoryView list={data?.history || []} onUpdate={(newHistory)=>updateData(prev=>({...prev, history: newHistory}))} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.9 ● {user ? '已連線' : '本地模式'}</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.0 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
       {deletingItem && <Modal title="刪除確認" onClose={()=>setDeletingItem(null)}><div className="text-center p-4"><p className="mb-4">確定刪除「{deletingItem.name}」？</p><div className="flex gap-2"><button onClick={()=>setDeletingItem(null)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={confirmDelete} className="flex-1 py-2 bg-red-600 text-white rounded">刪除</button></div></div></Modal>}
       {rateModal.isOpen && <Modal title={`完食評分：${rateModal.item.name}`} onClose={()=>setRateModal({isOpen:false})}><RateForm item={rateModal.item} onConfirm={confirmRate} onCancel={()=>setRateModal({isOpen:false})} /></Modal>}
-      {resetConfirm && <Modal title="重置確認" onClose={()=>setResetConfirm(false)}><div className="text-center p-4"><p className="mb-4 text-red-600 font-bold">警告：此操作將刪除所有自訂紀錄並還原至預設值。</p><div className="flex gap-2"><button onClick={()=>setResetConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={performReset} className="flex-1 py-2 bg-red-600 text-white rounded">確認重置</button></div></div></Modal>}
+      {resetConfirm && <Modal title="重置確認" onClose={()=>setResetConfirm(false)}><div className="text-center p-4"><p className="mb-4 text-red-600 font-bold">警告：這會刪除目前紀錄，並還原成您剛剛提供的完整清單。</p><div className="flex gap-2"><button onClick={()=>setResetConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={performReset} className="flex-1 py-2 bg-red-600 text-white rounded">確認還原</button></div></div></Modal>}
     </div>
   );
 }
@@ -305,7 +644,6 @@ function LoginScreen({ login, error, processing }) {
 
 // --- Views & Components ---
 
-// 1. ToWatchView
 function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
@@ -315,7 +653,6 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   const add = (e) => {
     e.preventDefault();
     if(!name.trim()) return;
-    // 使用函數式更新，現在 safe updateData 支援這種寫法了
     onUpdate(p => ({...p, toWatch:[{id:Date.now().toString(), name, note, isCrossSeason:isCross}, ...p.toWatch]}));
     setName(''); setNote(''); setIsCross(false);
   };
@@ -386,7 +723,6 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   );
 }
 
-// 2. SeasonalView
 function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, onEdit, onRate }) {
   const [term, setTerm] = useState('');
   const [exp, setExp] = useState({});
@@ -410,10 +746,7 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
   };
 
   const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(prev => ({...prev, seasonal: data.map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))})); setSel(new Set()); setBatch(false); } };
-  
-  // 修正 Add 方法：使用 prev function
   const add = (fid, name, note, isCross) => onUpdate(prev => ({...prev, seasonal: data.map(f => f.id===fid ? {...f, items:[{id:Date.now().toString(), name, note, isCrossSeason:isCross}, ...f.items]} : f)}));
-  
   const createFolder = () => { if(!newFolderName.trim()) return; onUpdate(prev => ({...prev, seasonal: [{id:`folder-${Date.now()}`, name:newFolderName, items:[]} ,...data]})); setNewFolderName(''); };
 
   return (
@@ -502,7 +835,6 @@ function AddSeasonalItemForm({ onAdd }) {
     );
 }
 
-// 3. HistoryView
 function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
   const [term, setTerm] = useState('');
   const [batch, setBatch] = useState(false);
