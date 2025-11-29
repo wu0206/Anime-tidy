@@ -12,7 +12,7 @@ const LOCAL_STORAGE_KEY = "anime_tracker_local_backup";
 
 const Icons = { Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut, FilePlus };
 
-// --- 評分資料來源 ---
+// --- 評分資料來源 (保留您的完整清單) ---
 const RATED_SOURCE = [
   {r:6, items:[
     "Lycoris Recoil 莉可麗絲 Friends are thieves of time",
@@ -72,7 +72,7 @@ const RATED_SOURCE = [
   ]}
 ];
 
-// --- 季節資料來源 ---
+// --- 季節資料來源 (保留您的完整清單) ---
 const SEASONAL_SOURCE = [
   {name:"2025 10月", items:[
     "SPY×FAMILY 間諜家家酒 第三季",
@@ -340,24 +340,22 @@ const RATING_TIERS = [
   {label:'⭐️⭐️⭐️ (普通)',value:3},
   {label:'⭐️⭐️ (微妙)',value:2},
   {label:'⭐️ (雷作)',value:1},
-  {label:'其他 (未評價)',value:-1}, // 這裡修改了標籤
+  {label:'其他 (未評價)',value:-1}, 
   {label:'放棄 (棄番)',value:0}
 ];
 
-// 正規化函數：去除空格、括號、符號，統一轉小寫，用來比對片名
 const normalize = (str) => str.replace(/[\s\u3000]/g, '').replace(/[（(].*?[)）]/g, '').replace(/[*^_^]/g, '').toLowerCase();
 
 // --- 初始資料產生器 (含自動分類邏輯) ---
 const generateInitialData = () => {
   const history = [], seasonal = [], toWatch = [];
-  const historyMap = new Set(); // 用來記錄已經存在歷史紀錄中的動畫 (避免重複)
+  const historyMap = new Set();
 
-  // 1. 處理評分紀錄 (1~6星)
+  // 1. 處理評分紀錄
   RATED_SOURCE.forEach(tier => tier.items.forEach(name => { 
     const cleanName = name.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim();
     const normName = normalize(cleanName);
     
-    // 如果尚未存在，則加入
     if (!historyMap.has(normName)) {
       history.push({
           id:`h-${Math.random().toString(36).substr(2,9)}`,
@@ -373,7 +371,6 @@ const generateInitialData = () => {
 
   // 2. 處理季節列表 (與自動歸類未評價)
   SEASONAL_SOURCE.forEach((s, i) => {
-    // 建立季節資料夾結構
     const items = s.items.map((n, j) => {
       const isCross = n.includes('（跨）') || n.includes('(跨)');
       const clean = n.replace(/\(.*\)|（.*）|\*|^_^/g, '').trim();
@@ -386,8 +383,6 @@ const generateInitialData = () => {
     });
     seasonal.push({id:`folder-${i}`,name:s.name,items});
 
-    // 自動分類邏輯：
-    // 如果是「2025 10月」 -> 加入待看清單
     if (s.name === "2025 10月") {
        items.forEach(item => {
          toWatch.push({
@@ -397,17 +392,14 @@ const generateInitialData = () => {
             isCrossSeason: item.isCrossSeason
          });
        });
-    } 
-    // 如果是其他季度 (代表已看過) -> 檢查是否已評分，若無則加入「未評價」
-    else {
+    } else {
        items.forEach(item => {
           const normName = normalize(item.name);
           if (!historyMap.has(normName)) {
-             // 沒在評分清單中，自動加入歷史紀錄，評分為 -1 (未評價)
              history.push({
                 id:`h-auto-${Math.random().toString(36).substr(2,9)}`,
                 name: item.name,
-                rating: -1, // 對應「其他 (未評價)」
+                rating: -1, // 未評價
                 note: item.note,
                 date: new Date().toISOString().split('T')[0],
                 isCrossSeason: item.isCrossSeason
@@ -469,7 +461,6 @@ export default function App() {
                 lastUpdated: cloudData.lastUpdated || 0
             };
 
-            // --- 版本衝突檢查 ---
             let localTime = 0;
             try {
                 const localRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -504,7 +495,7 @@ export default function App() {
     return () => unsubAuth();
   }, []); 
 
-  // --- Update Data Helper (修復版: 支援 function update) ---
+  // --- Update Data Helper ---
   const updateData = (newDataOrUpdater) => {
     setDataState((prevData) => {
       let newData;
@@ -605,7 +596,6 @@ export default function App() {
   };
 
   const performReset = () => {
-    // 強制重置 (觸發 generateInitialData 的自動歸類邏輯)
     updateData(generateInitialData());
     setResetConfirm(false);
   };
@@ -651,13 +641,13 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.1 ● {user ? '已連線' : '本地模式'}</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.2 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
       {deletingItem && <Modal title="刪除確認" onClose={()=>setDeletingItem(null)}><div className="text-center p-4"><p className="mb-4">確定刪除「{deletingItem.name}」？</p><div className="flex gap-2"><button onClick={()=>setDeletingItem(null)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={confirmDelete} className="flex-1 py-2 bg-red-600 text-white rounded">刪除</button></div></div></Modal>}
       {rateModal.isOpen && <Modal title={`完食評分：${rateModal.item.name}`} onClose={()=>setRateModal({isOpen:false})}><RateForm item={rateModal.item} onConfirm={confirmRate} onCancel={()=>setRateModal({isOpen:false})} /></Modal>}
-      {resetConfirm && <Modal title="重置確認" onClose={()=>setResetConfirm(false)}><div className="text-center p-4"><p className="mb-4 text-red-600 font-bold">警告：這會刪除目前紀錄，並還原成您剛剛提供的完整清單（包含自動分類）。</p><div className="flex gap-2"><button onClick={()=>setResetConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={performReset} className="flex-1 py-2 bg-red-600 text-white rounded">確認還原</button></div></div></Modal>}
+      {resetConfirm && <Modal title="重置確認" onClose={()=>setResetConfirm(false)}><div className="text-center p-4"><p className="mb-4 text-red-600 font-bold">警告：這會刪除目前紀錄，並還原成您剛剛提供的完整清單。</p><div className="flex gap-2"><button onClick={()=>setResetConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={performReset} className="flex-1 py-2 bg-red-600 text-white rounded">確認還原</button></div></div></Modal>}
     </div>
   );
 }
@@ -913,7 +903,10 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
         const items = groups[t.value]||[]; if(!items.length) return null;
         return (
           <div key={t.value}>
-            <h3 className="font-bold text-gray-700 border-b border-indigo-100 mb-3 pb-1 flex justify-between items-end"><span className="text-sm">{t.label}</span><span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">{items.length}</span></h3>
+            <h3 className="font-bold text-gray-800 border-b-2 border-indigo-100 mb-4 pb-2 flex justify-between items-end mt-8">
+              <span className="text-xl">{t.label}</span>
+              <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">{items.length}</span>
+            </h3>
             <div className="grid gap-2">{items.map(i => (
               <div key={i.id} className="bg-white p-3 rounded-lg border-l-4 border-indigo-500 shadow-sm flex gap-3 hover:shadow-md transition-shadow">
                 {batch && <div onClick={()=>toggleSel(i.id)} className={`w-5 h-5 border rounded flex items-center justify-center self-center cursor-pointer ${sel.has(i.id)?'bg-red-500 border-red-500 text-white':''}`}>{sel.has(i.id)&&<Icons.Check className="w-3 h-3"/>}</div>}
