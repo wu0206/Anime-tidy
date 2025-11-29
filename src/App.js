@@ -33,19 +33,19 @@ const generateInitialData = () => {
     });
     seasonal.push({id:`folder-${i}`,name:s.name,items});
   });
-  return {toWatch:[], seasonal, history};
+  // Fix: 加入 lastUpdated 初始值
+  return {toWatch:[], seasonal, history, lastUpdated: Date.now()};
 };
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('towatch');
   
-  // --- 安全讀取資料 (Fix: 增加 try-catch 防止白畫面) ---
+  // --- 安全讀取資料 ---
   const [data, setDataState] = useState(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // 檢查必要結構，如果不完整就回傳初始值，避免崩潰
         if (!parsed.toWatch || !parsed.seasonal || !parsed.history) {
           return generateInitialData();
         }
@@ -73,20 +73,41 @@ export default function App() {
     const unsubAuth = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u) {
-        // 使用者登入，優先使用 Firestore 資料
+        // 使用者登入，連接 Firestore
         const docRef = doc(db, "users", u.uid, COLLECTION_NAME, "main");
         const unsubData = onSnapshot(docRef, (docSnap) => {
           if (docSnap.exists()) {
             const cloudData = docSnap.data();
-            // 確保雲端資料結構完整
             const safeData = {
                 toWatch: cloudData.toWatch || [],
                 seasonal: cloudData.seasonal || [],
-                history: cloudData.history || []
+                history: cloudData.history || [],
+                lastUpdated: cloudData.lastUpdated || 0 // 讀取雲端時間
             };
-            setDataState(safeData);
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(safeData));
+
+            // --- 版本衝突檢查 ---
+            let localTime = 0;
+            try {
+                const localRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (localRaw) {
+                    localTime = JSON.parse(localRaw).lastUpdated || 0;
+                }
+            } catch(e) {}
+
+            // 如果「本地時間」比「雲端時間」還新 (大於 1秒以上)，代表還有資料沒上傳成功
+            // 這時候我們不要更新畫面，反而要強制把本地資料再推上去一次
+            if (localTime > safeData.lastUpdated + 1000) {
+               console.log("本地資料較新，略過雲端舊資料覆蓋，並嘗試補上傳...");
+               // 使用 localStorage 的資料強制覆蓋雲端
+               const currentLocalData = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY));
+               setDoc(docRef, currentLocalData).catch(console.error);
+            } else {
+               // 只有雲端比較新，或兩邊一樣時，才更新本地畫面
+               setDataState(safeData);
+               localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(safeData));
+            }
           } else {
+            // 雲端沒資料，上傳初始資料
             setDoc(docRef, data);
           }
           setLoading(false);
@@ -104,12 +125,17 @@ export default function App() {
     return () => unsubAuth();
   }, []); 
 
-  // --- Update Data Helper ---
+  // --- Update Data Helper (Fix: 自動寫入時間戳記) ---
   const updateData = (newData) => {
-    setDataState(newData);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newData));
+    // 1. 自動加入當前時間戳記
+    const dataWithTimestamp = { ...newData, lastUpdated: Date.now() };
+    
+    setDataState(dataWithTimestamp);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataWithTimestamp));
+    
     if (user) {
-      setDoc(doc(db, "users", user.uid, COLLECTION_NAME, "main"), newData).catch(console.error);
+      // 2. 上傳帶有時間戳記的資料
+      setDoc(doc(db, "users", user.uid, COLLECTION_NAME, "main"), dataWithTimestamp).catch(console.error);
     }
   };
 
@@ -225,7 +251,7 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.7 ● {user ? '已連線' : '本地模式'}</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.8 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
