@@ -171,6 +171,15 @@ export default function App() {
     setResetConfirm(false);
   };
 
+  // --- Missing Functions Fixed Here ---
+  const openEditModal = (type, item, folderId = null) => {
+    setEditingItem({ type, listId: item.id, item, folderId });
+  };
+
+  const openRateModal = (item, source) => {
+    setRateModal({ isOpen: true, item, source });
+  };
+
   // --- Render ---
   if (loading) return <div className="flex h-screen items-center justify-center text-gray-500">載入中...</div>;
   if (!user) return (
@@ -215,7 +224,7 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.3 ● 已同步</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v1.4 ● 已同步</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
