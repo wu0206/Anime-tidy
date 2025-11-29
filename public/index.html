@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#4f46e5" />
+    <meta name="description" content="動漫追番 Anime Tracker" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo.svg" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>追番君</title>
+    <!-- 使用 Tailwind CDN 快速樣式 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body { 
+        background-color: #f9fafb; 
+        -webkit-tap-highlight-color: transparent;
+        /* 支援 iPhone 瀏海與底部橫條 */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      /* 隱藏捲軸 */
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      /* 自訂 Checkbox */
+      .custom-checkbox { width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; border: 2px solid #d1d5db; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+      .custom-checkbox.checked { background-color: #ef4444; border-color: #ef4444; color: white; }
+    </style>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
