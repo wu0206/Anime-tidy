@@ -607,7 +607,6 @@ export default function App() {
   );
 
   return (
-    // 修改: 加入 overflow-x-hidden 與 w-full 防止手機版面左右滑動
     <div className="min-h-screen pb-24 bg-[#f9fafb] text-gray-800 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] overflow-x-hidden w-full">
       <nav className="bg-indigo-600 text-white shadow-md sticky top-0 z-50 pt-[env(safe-area-inset-top)] -mt-[env(safe-area-inset-top)]">
         <div className="max-w-4xl mx-auto px-4">
@@ -644,7 +643,8 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.4 ● {user ? '已連線' : '本地模式'}</span>
+        {/* Version 2.5 Updated */}
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.5 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
@@ -915,14 +915,12 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
               <div key={i.id} className="bg-white p-3 rounded-lg border-l-4 border-indigo-500 shadow-sm flex gap-3 hover:shadow-md transition-shadow">
                 {batch && <div onClick={()=>toggleSel(i.id)} className={`w-5 h-5 border rounded flex items-center justify-center self-center cursor-pointer ${sel.has(i.id)?'bg-red-500 border-red-500 text-white':''}`}>{sel.has(i.id)&&<Icons.Check className="w-3 h-3"/>}</div>}
                 
-                {/* 修改: 加上 flex-1 與 min-w-0 確保寬度控制 */}
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
-                        {/* 修改: 加上 flex-1 block pr-2 確保文字過長時正確截斷 */}
-                        <span onClick={()=>!batch&&onSearch(i.name)} className="font-medium cursor-pointer text-gray-800 hover:text-indigo-600 truncate flex-1 block pr-2">{i.name}</span>
+                        {/* 修改重點：移除 truncate，改用 break-words whitespace-normal 以支援自動換行 */}
+                        <span onClick={()=>!batch&&onSearch(i.name)} className="font-medium cursor-pointer text-gray-800 hover:text-indigo-600 break-words whitespace-normal flex-1 block pr-2">{i.name}</span>
                         
                         {!batch&& (
-                          /* 修改: 加上 flex-shrink-0 防止按鈕被擠壓 */
                           <div className="flex gap-2 text-gray-400 flex-shrink-0">
                             <Icons.Edit3 className="w-4 h-4 cursor-pointer hover:text-indigo-500" onClick={()=>onEdit(i)} />
                             <Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name)} />
