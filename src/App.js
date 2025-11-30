@@ -643,8 +643,8 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        {/* Version 2.5 Updated */}
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.5 ● {user ? '已連線' : '本地模式'}</span>
+        {/* Version 2.6 Updated */}
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.6 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
@@ -717,7 +717,8 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
           <div className="pt-1"><button onClick={()=>onRate(i)} className="w-6 h-6 border-2 border-gray-300 rounded hover:border-green-500 hover:bg-green-50 transition-colors"></button></div>
           <div className="flex-1">
             <div className="flex justify-between items-start">
-              <span onClick={()=>onSearch(i.name)} className="text-lg font-bold text-gray-800 cursor-pointer hover:text-indigo-600 leading-tight">{i.name}</span>
+              {/* 修改: 加入 break-words whitespace-normal */}
+              <span onClick={()=>onSearch(i.name)} className="text-lg font-bold text-gray-800 cursor-pointer hover:text-indigo-600 leading-tight break-words whitespace-normal">{i.name}</span>
               <div className="flex gap-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                 <Icons.Edit3 className="w-5 h-5 text-gray-400 hover:text-indigo-500 cursor-pointer" onClick={()=>onEdit(i)} />
                 <Icons.Trash2 className="w-5 h-5 text-gray-400 hover:text-red-500 cursor-pointer" onClick={()=>onDelete(i.id, i.name)} />
@@ -832,7 +833,8 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
                   <div>{batch ? <div onClick={()=>toggleSel(i.id)} className={`w-5 h-5 border rounded flex items-center justify-center cursor-pointer ${sel.has(i.id)?'bg-red-500 border-red-500 text-white':''}`}>{sel.has(i.id)&&<Icons.Check className="w-3 h-3"/>}</div> : (isWatched(i.name)?<Icons.Check className="w-5 h-5 text-green-600"/>:<button onClick={()=>onRate(i)} className="w-5 h-5 border-2 rounded hover:border-green-500 transition-colors"></button>)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
-                        <span onClick={()=>!batch&&onSearch(i.name)} className={`font-medium cursor-pointer truncate ${isWatched(i.name)?'text-gray-500 line-through':''}`}>{i.name}</span>
+                        {/* 修改: 移除 truncate, 改用 break-words whitespace-normal */}
+                        <span onClick={()=>!batch&&onSearch(i.name)} className={`font-medium cursor-pointer break-words whitespace-normal ${isWatched(i.name)?'text-gray-500 line-through':''}`}>{i.name}</span>
                         {!batch&&<div className="flex gap-2 text-gray-400 opacity-60 hover:opacity-100"><Icons.Edit3 className="w-4 h-4 cursor-pointer" onClick={()=>onEdit(i,f.id)} /><Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name,f.id)} /></div>}
                     </div>
                     <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
@@ -917,7 +919,6 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
                 
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
-                        {/* 修改重點：移除 truncate，改用 break-words whitespace-normal 以支援自動換行 */}
                         <span onClick={()=>!batch&&onSearch(i.name)} className="font-medium cursor-pointer text-gray-800 hover:text-indigo-600 break-words whitespace-normal flex-1 block pr-2">{i.name}</span>
                         
                         {!batch&& (
