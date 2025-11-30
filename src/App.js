@@ -607,7 +607,8 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen pb-24 bg-[#f9fafb] text-gray-800 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+    // 修改: 加入 overflow-x-hidden 與 w-full 防止手機版面左右滑動
+    <div className="min-h-screen pb-24 bg-[#f9fafb] text-gray-800 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] overflow-x-hidden w-full">
       <nav className="bg-indigo-600 text-white shadow-md sticky top-0 z-50 pt-[env(safe-area-inset-top)] -mt-[env(safe-area-inset-top)]">
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex justify-between items-center h-14">
@@ -635,7 +636,6 @@ export default function App() {
       </nav>
 
       <main className="max-w-4xl mx-auto p-3">
-        {/* 主要修復點：移除多餘的包裝函數，直接傳遞 updateData */}
         {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
         
         {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={updateData} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
@@ -644,7 +644,7 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.3 ● {user ? '已連線' : '本地模式'}</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.4 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
@@ -775,11 +775,9 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
     else setSel(new Set(visibleIds));
   };
 
-  // 使用 prev.seasonal 來確保更新安全
   const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(prev => ({...prev, seasonal: (prev.seasonal||[]).map(f => ({...f, items: f.items.filter(i => !sel.has(i.id))}))})); setSel(new Set()); setBatch(false); } };
   const add = (fid, name, note, isCross) => onUpdate(prev => ({...prev, seasonal: (prev.seasonal||[]).map(f => f.id===fid ? {...f, items:[{id:Date.now().toString(), name, note, isCrossSeason:isCross}, ...f.items]} : f)}));
   
-  // 修正：這裡使用了安全的 prev.seasonal
   const createFolder = () => { if(!newFolderName.trim()) return; onUpdate(prev => ({...prev, seasonal: [{id:`folder-${Date.now()}`, name:newFolderName, items:[]} ,...(prev.seasonal||[])]})); setNewFolderName(''); };
 
   return (
@@ -882,7 +880,6 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
     if (visibleIds.every(id => sel.has(id))) setSel(new Set());
     else setSel(new Set(visibleIds));
   };
-  // 使用 prev.history 確保安全
   const delSel = () => { if(window.confirm(`刪除 ${sel.size} 項?`)) { onUpdate(prev => ({...prev, history: (prev.history||[]).filter(i => !sel.has(i.id))})); setSel(new Set()); setBatch(false); } };
 
   return (
@@ -910,7 +907,6 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
         const items = groups[t.value]||[]; if(!items.length) return null;
         return (
           <div key={t.value}>
-            {/* 加大加深的標題樣式 */}
             <h3 className="font-bold text-indigo-800 border-b-2 border-indigo-100 mb-4 pb-2 flex justify-between items-end mt-8">
               <span className="text-xl">{t.label}</span>
               <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">{items.length}</span>
@@ -918,10 +914,20 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
             <div className="grid gap-2">{items.map(i => (
               <div key={i.id} className="bg-white p-3 rounded-lg border-l-4 border-indigo-500 shadow-sm flex gap-3 hover:shadow-md transition-shadow">
                 {batch && <div onClick={()=>toggleSel(i.id)} className={`w-5 h-5 border rounded flex items-center justify-center self-center cursor-pointer ${sel.has(i.id)?'bg-red-500 border-red-500 text-white':''}`}>{sel.has(i.id)&&<Icons.Check className="w-3 h-3"/>}</div>}
+                
+                {/* 修改: 加上 flex-1 與 min-w-0 確保寬度控制 */}
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
-                        <span onClick={()=>!batch&&onSearch(i.name)} className="font-medium cursor-pointer text-gray-800 hover:text-indigo-600 truncate">{i.name}</span>
-                        {!batch&&<div className="flex gap-2 text-gray-400"><Icons.Edit3 className="w-4 h-4 cursor-pointer hover:text-indigo-500" onClick={()=>onEdit(i)} /><Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name)} /></div>}
+                        {/* 修改: 加上 flex-1 block pr-2 確保文字過長時正確截斷 */}
+                        <span onClick={()=>!batch&&onSearch(i.name)} className="font-medium cursor-pointer text-gray-800 hover:text-indigo-600 truncate flex-1 block pr-2">{i.name}</span>
+                        
+                        {!batch&& (
+                          /* 修改: 加上 flex-shrink-0 防止按鈕被擠壓 */
+                          <div className="flex gap-2 text-gray-400 flex-shrink-0">
+                            <Icons.Edit3 className="w-4 h-4 cursor-pointer hover:text-indigo-500" onClick={()=>onEdit(i)} />
+                            <Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name)} />
+                          </div>
+                        )}
                     </div>
                     <div className="text-xs text-gray-400 mt-1 flex gap-2">
                         <span>{i.date}</span>
