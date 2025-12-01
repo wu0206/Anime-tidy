@@ -409,7 +409,8 @@ const generateInitialData = () => {
     }
   });
 
-  return {toWatch, seasonal, history, lastUpdated: Date.now()};
+  // 修改：加入 highlightId: null
+  return {toWatch, seasonal, history, highlightId: null, lastUpdated: Date.now()};
 };
 
 export default function App() {
@@ -457,6 +458,8 @@ export default function App() {
                 toWatch: cloudData.toWatch || [],
                 seasonal: cloudData.seasonal || [],
                 history: cloudData.history || [],
+                // 修改：讀取雲端 highlightId
+                highlightId: cloudData.highlightId || null,
                 lastUpdated: cloudData.lastUpdated || 0
             };
 
@@ -635,7 +638,8 @@ export default function App() {
       </nav>
 
       <main className="max-w-4xl mx-auto p-3">
-        {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
+        {/* 修改：將 highlightId={data?.highlightId} 傳入 ToWatchView */}
+        {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} highlightId={data?.highlightId} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
         
         {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={updateData} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
         
@@ -643,8 +647,8 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        {/* Version 2.7 Updated */}
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.7 ● {user ? '已連線' : '本地模式'}</span>
+        {/* Version 2.8 Updated */}
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.8 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
@@ -674,14 +678,14 @@ function LoginScreen({ login, error, processing }) {
 
 // --- Views & Components ---
 
-function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
+// 修改：ToWatchView 接收 highlightId
+function ToWatchView({ list, highlightId, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [isCross, setIsCross] = useState(false);
   const [gachaResult, setGachaResult] = useState(null);
   
-  // 新增狀態: 紀錄被抽中的ID
-  const [highlightId, setHighlightId] = useState(null);
+  // 移除本地 highlightId 狀態
 
   const add = (e) => {
     e.preventDefault();
@@ -694,7 +698,8 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
       if(!list.length) return alert("清單是空的！"); 
       const winner = list[Math.floor(Math.random()*list.length)];
       setGachaResult(winner); 
-      setHighlightId(winner.id); // 設定反黃的ID
+      // 修改：更新全域資料中的 highlightId，這樣就會自動觸發儲存 (localStorage/Firestore)
+      onUpdate(prev => ({ ...prev, highlightId: winner.id }));
   };
 
   return (
@@ -723,7 +728,6 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
         {list.map(i => (
         <div 
             key={i.id} 
-            // 修改重點：根據 highlightId 判斷是否要反黃 (bg-yellow-100) 與加框
             className={`${highlightId === i.id ? 'bg-yellow-100 ring-2 ring-yellow-400' : 'bg-white'} p-4 rounded-xl border shadow-sm flex gap-4 items-start group transition-colors duration-300`}
         >
           <div className="pt-1"><button onClick={()=>onRate(i)} className="w-6 h-6 border-2 border-gray-300 rounded hover:border-green-500 hover:bg-green-50 transition-colors"></button></div>
