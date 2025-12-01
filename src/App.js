@@ -643,8 +643,8 @@ export default function App() {
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        {/* Version 2.6 Updated */}
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.6 ● {user ? '已連線' : '本地模式'}</span>
+        {/* Version 2.7 Updated */}
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.7 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
@@ -679,6 +679,9 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   const [note, setNote] = useState('');
   const [isCross, setIsCross] = useState(false);
   const [gachaResult, setGachaResult] = useState(null);
+  
+  // 新增狀態: 紀錄被抽中的ID
+  const [highlightId, setHighlightId] = useState(null);
 
   const add = (e) => {
     e.preventDefault();
@@ -687,7 +690,12 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
     setName(''); setNote(''); setIsCross(false);
   };
   
-  const gacha = () => { if(!list.length) return alert("清單是空的！"); setGachaResult(list[Math.floor(Math.random()*list.length)]); };
+  const gacha = () => { 
+      if(!list.length) return alert("清單是空的！"); 
+      const winner = list[Math.floor(Math.random()*list.length)];
+      setGachaResult(winner); 
+      setHighlightId(winner.id); // 設定反黃的ID
+  };
 
   return (
     <div className="space-y-6">
@@ -713,11 +721,14 @@ function ToWatchView({ list, onUpdate, onSearch, onDelete, onEdit, onRate }) {
       <div className="space-y-3">
         {list.length === 0 && <div className="text-center text-gray-400 py-10">目前沒有待看項目</div>}
         {list.map(i => (
-        <div key={i.id} className="bg-white p-4 rounded-xl border shadow-sm flex gap-4 items-start group">
+        <div 
+            key={i.id} 
+            // 修改重點：根據 highlightId 判斷是否要反黃 (bg-yellow-100) 與加框
+            className={`${highlightId === i.id ? 'bg-yellow-100 ring-2 ring-yellow-400' : 'bg-white'} p-4 rounded-xl border shadow-sm flex gap-4 items-start group transition-colors duration-300`}
+        >
           <div className="pt-1"><button onClick={()=>onRate(i)} className="w-6 h-6 border-2 border-gray-300 rounded hover:border-green-500 hover:bg-green-50 transition-colors"></button></div>
           <div className="flex-1">
             <div className="flex justify-between items-start">
-              {/* 修改: 加入 break-words whitespace-normal */}
               <span onClick={()=>onSearch(i.name)} className="text-lg font-bold text-gray-800 cursor-pointer hover:text-indigo-600 leading-tight break-words whitespace-normal">{i.name}</span>
               <div className="flex gap-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                 <Icons.Edit3 className="w-5 h-5 text-gray-400 hover:text-indigo-500 cursor-pointer" onClick={()=>onEdit(i)} />
@@ -833,7 +844,6 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
                   <div>{batch ? <div onClick={()=>toggleSel(i.id)} className={`w-5 h-5 border rounded flex items-center justify-center cursor-pointer ${sel.has(i.id)?'bg-red-500 border-red-500 text-white':''}`}>{sel.has(i.id)&&<Icons.Check className="w-3 h-3"/>}</div> : (isWatched(i.name)?<Icons.Check className="w-5 h-5 text-green-600"/>:<button onClick={()=>onRate(i)} className="w-5 h-5 border-2 rounded hover:border-green-500 transition-colors"></button>)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
-                        {/* 修改: 移除 truncate, 改用 break-words whitespace-normal */}
                         <span onClick={()=>!batch&&onSearch(i.name)} className={`font-medium cursor-pointer break-words whitespace-normal ${isWatched(i.name)?'text-gray-500 line-through':''}`}>{i.name}</span>
                         {!batch&&<div className="flex gap-2 text-gray-400 opacity-60 hover:opacity-100"><Icons.Edit3 className="w-4 h-4 cursor-pointer" onClick={()=>onEdit(i,f.id)} /><Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name,f.id)} /></div>}
                     </div>
