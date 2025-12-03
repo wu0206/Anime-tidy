@@ -1,21 +1,16 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { auth, db } from './firebase'; 
 import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { 
-  Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut, FilePlus,
-  Key, Star, ShieldCheck, Loader2, AlertCircle, ScanSearch
+  Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut, FilePlus 
 } from 'lucide-react';
 
 // --- 常數設定 ---
 const COLLECTION_NAME = "anime_tracker_data";
 const LOCAL_STORAGE_KEY = "anime_tracker_local_backup";
-const API_KEY_STORAGE_KEY = "gemini_user_api_key"; // 新增 API Key 儲存鍵
 
-const Icons = { 
-  Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut, FilePlus,
-  Key, Star, ShieldCheck, Loader2, AlertCircle, ScanSearch
-};
+const Icons = { Plus, Check, Trash2, FolderPlus, PlayCircle, Save, Edit3, X, List, Folder, Clock, Trophy, ExternalLink, Dice5, Pencil, AlertTriangle, Search, ListChecks, LogOut, FilePlus };
 
 // --- 評分資料來源 (保留您的完整清單) ---
 const RATED_SOURCE = [
@@ -414,12 +409,12 @@ const generateInitialData = () => {
     }
   });
 
+  // 修改：加入 highlightId: null
   return {toWatch, seasonal, history, highlightId: null, lastUpdated: Date.now()};
 };
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('towatch');
-  const [ratingSearchQuery, setRatingSearchQuery] = useState(null); // 用於跨分頁搜尋
   
   // --- 安全讀取資料 ---
   const [data, setDataState] = useState(() => {
@@ -463,6 +458,7 @@ export default function App() {
                 toWatch: cloudData.toWatch || [],
                 seasonal: cloudData.seasonal || [],
                 history: cloudData.history || [],
+                // 修改：讀取雲端 highlightId
                 highlightId: cloudData.highlightId || null,
                 lastUpdated: cloudData.lastUpdated || 0
             };
@@ -554,13 +550,6 @@ export default function App() {
 
   // --- Data Actions ---
   const handleGoogleSearch = (name) => window.open(`https://www.google.com/search?q=${encodeURIComponent(name)}`, '_blank');
-  
-  // 連動功能：跳轉到評分搜尋頁並搜尋
-  const handleRateSearch = (name) => {
-    setRatingSearchQuery(name);
-    setActiveTab('rating');
-  };
-
   const requestDelete = (type, id, name, folderId) => setDeletingItem({ type, id, name, folderId });
   
   const confirmDelete = () => {
@@ -639,7 +628,7 @@ export default function App() {
             </div>
           </div>
           <div className="flex space-x-1 pb-0 overflow-x-auto hide-scrollbar">
-            {[{id:'towatch', label:'待看清單', icon:Icons.List}, {id:'seasonal', label:'各季新番', icon:Icons.Folder}, {id:'history', label:'觀看紀錄', icon:Icons.Clock}, {id:'rating', label:'評分搜尋', icon:Icons.Star}].map(tab => (
+            {[{id:'towatch', label:'待看清單', icon:Icons.List}, {id:'seasonal', label:'各季新番', icon:Icons.Folder}, {id:'history', label:'觀看紀錄', icon:Icons.Clock}].map(tab => (
               <button key={tab.id} onClick={()=>setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-t-lg text-sm font-medium transition-colors ${activeTab===tab.id ? 'bg-[#f9fafb] text-indigo-600' : 'text-indigo-100 hover:bg-white/10'}`}>
                 <tab.icon className="w-4 h-4"/> {tab.label}
               </button>
@@ -649,18 +638,17 @@ export default function App() {
       </nav>
 
       <main className="max-w-4xl mx-auto p-3">
-        {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} highlightId={data?.highlightId} onUpdate={updateData} onSearch={handleGoogleSearch} onRateSearch={handleRateSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
+        {/* 修改：將 highlightId={data?.highlightId} 傳入 ToWatchView */}
+        {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} highlightId={data?.highlightId} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
         
-        {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={updateData} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} onRateSearch={handleRateSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
+        {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={updateData} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
         
-        {activeTab === 'history' && <HistoryView list={data?.history || []} onUpdate={updateData} onSearch={handleGoogleSearch} onRateSearch={handleRateSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
-
-        {activeTab === 'rating' && <RatingView initialQuery={ratingSearchQuery} />}
+        {activeTab === 'history' && <HistoryView list={data?.history || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        {/* Version 2.9 Updated */}
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.9 ● {user ? '已連線' : '本地模式'}</span>
+        {/* Version 2.8 Updated */}
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.8 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
@@ -688,241 +676,17 @@ function LoginScreen({ login, error, processing }) {
   );
 }
 
-// --- Rating View (New Feature) ---
-function RatingView({ initialQuery }) {
-  const [apiKey, setApiKey] = useState('');
-  const [savedKey, setSavedKey] = useState(false);
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [errorDetail, setErrorDetail] = useState('');
-  const initializedRef = useRef(false);
-
-  // Load key
-  useEffect(() => {
-    const storedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-    if (storedKey) {
-      setApiKey(storedKey);
-      setSavedKey(true);
-    }
-  }, []);
-
-  // Auto search trigger from props
-  useEffect(() => {
-    if (initialQuery && initialQuery !== query) {
-        setQuery(initialQuery);
-        // 短暫延遲確保 state 更新後執行，並且只執行一次
-        if (apiKey && !loading) {
-            // 自動觸發搜尋邏輯提取出來會更好，這裡直接調用稍顯複雜，
-            // 為了簡化，我們用一個 timeout 觸發點擊，或者直接呼叫邏輯。
-            // 這裡選擇直接呼叫邏輯的變體。
-            doSearch(initialQuery, apiKey); 
-        }
-    }
-  }, [initialQuery]);
-
-  const handleSaveKey = () => {
-    if (apiKey.trim().length > 10) {
-      localStorage.setItem(API_KEY_STORAGE_KEY, apiKey.trim());
-      setSavedKey(true);
-    }
-  };
-
-  const handleClearKey = () => {
-    localStorage.removeItem(API_KEY_STORAGE_KEY);
-    setApiKey('');
-    setSavedKey(false);
-  };
-
-  const doSearch = async (searchQ, searchKey) => {
-    const cleanKey = searchKey.trim();
-    if (!cleanKey) { setError('請先輸入您的 Gemini API Key'); return; }
-    if (!searchQ) { setError('請輸入動漫名稱'); return; }
-
-    setLoading(true);
-    setError('');
-    setErrorDetail('');
-    setResults(null);
-
-    try {
-      const prompt = `
-        請透過 Google Search 搜尋動漫 "${searchQ}" 在以下網站的最新評分與詳細資訊：
-        1. MyAnimeList (MAL)
-        2. Anikore (あにこれ)
-        3. Bangumi (番組計劃)
-        4. Filmarks
-        5. 巴哈姆特動畫瘋 (Bahamut)
-
-        請針對每個網站提取：
-        - score: 評分數值 (若找不到請填 "N/A")
-        - max_score: 該網站的滿分是多少 (例如 10, 5, 或 100)
-        - url: 該動漫在該網站的連結 (盡量提供)
-        - review_count: 評分人數或簡短熱度描述 (例如 "20萬人評分" 或 "熱度高")
-        - comment: 用繁體中文簡短總結該網站對此動漫的主要評價風向 (一句話)。
-
-        最後回傳一個嚴格的 JSON 物件，格式如下 (不要用 Markdown code block，直接回傳 JSON string)：
-        {
-          "anime_title": "動漫的正式全名",
-          "summary": "一句話的動漫劇情簡介",
-          "sites": [
-            { "name": "MyAnimeList", "score": "...", "max_score": 10, "url": "...", "review_count": "...", "comment": "..." },
-            { "name": "Anikore", "score": "...", "max_score": 5, "url": "...", "review_count": "...", "comment": "..." },
-            ... 以及其他網站
-          ]
-        }
-      `;
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${cleanKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          tools: [{ google_search: {} }],
-          generationConfig: { temperature: 0.2 }
-        })
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      
-      if (!textResponse) throw new Error("Gemini 沒有回傳內容。");
-
-      const jsonString = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsedData = JSON.parse(jsonString);
-      setResults(parsedData);
-
-    } catch (err) {
-      console.error(err);
-      const msg = err.message || "發生未知錯誤";
-      setError(msg);
-      if (msg.includes('Failed to fetch')) {
-        setErrorDetail('連線被瀏覽器阻擋。可能原因：\n1. 廣告阻擋器 (uBlock, AdGuard)。\n2. 公司/學校網路阻擋 Google API。\n3. API Key 格式錯誤。');
-      } else if (msg.includes('400')) {
-        setErrorDetail('API Key 無效或過期。');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const searchAnime = () => doSearch(query, apiKey);
-  const getScoreColor = (score, max) => {
-    if (score === 'N/A') return 'text-gray-400';
-    const num = parseFloat(score);
-    if (isNaN(num)) return 'text-gray-400';
-    const percentage = num / max;
-    if (percentage >= 0.9) return 'text-emerald-600';
-    if (percentage >= 0.8) return 'text-blue-600';
-    if (percentage >= 0.7) return 'text-yellow-600';
-    return 'text-red-500';
-  };
-
-  return (
-    <div className="space-y-6">
-        {/* Header & API Key */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border space-y-4">
-             <div className="text-center">
-                 <h2 className="text-2xl font-bold text-indigo-600 flex items-center justify-center gap-2">
-                     <Icons.Star className="w-6 h-6" /> 全網動漫評分聚合
-                 </h2>
-                 <p className="text-xs text-gray-500 mt-1">Powered by Gemini & Google Search</p>
-             </div>
-
-             <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <div className="flex flex-col sm:flex-row gap-2 items-center">
-                    <div className="relative flex-1 w-full">
-                        <Icons.Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input 
-                            type={savedKey ? "password" : "text"}
-                            value={apiKey}
-                            onChange={(e)=>{setApiKey(e.target.value); setSavedKey(false);}}
-                            placeholder="輸入 Gemini API Key"
-                            className="w-full bg-white border rounded-lg py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
-                        />
-                    </div>
-                    {savedKey ? (
-                        <button onClick={handleClearKey} className="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-bold flex items-center justify-center gap-1 hover:bg-gray-300">
-                            <Icons.Trash2 className="w-4 h-4"/> 清除
-                        </button>
-                    ) : (
-                        <button onClick={handleSaveKey} className="w-full sm:w-auto px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-1 hover:bg-emerald-700">
-                            <Icons.ShieldCheck className="w-4 h-4"/> 記住
-                        </button>
-                    )}
-                </div>
-                <p className="text-[10px] text-gray-400 mt-2 text-center">* Key 僅儲存於本地瀏覽器，不會上傳伺服器。</p>
-             </div>
-        </div>
-
-        {/* Search Bar */}
-        <div className="flex gap-2">
-            <input 
-                value={query}
-                onChange={e=>setQuery(e.target.value)}
-                onKeyDown={e=>e.key==='Enter'&&searchAnime()}
-                placeholder="輸入動漫名稱..."
-                className="flex-1 border rounded-lg p-3 outline-none focus:ring-2 focus:ring-indigo-100 shadow-sm"
-            />
-            <button onClick={searchAnime} disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-lg font-bold shadow-sm disabled:opacity-50 flex items-center gap-2">
-                {loading ? <Icons.Loader2 className="w-5 h-5 animate-spin"/> : <Icons.Search className="w-5 h-5"/>}
-            </button>
-        </div>
-
-        {/* Error */}
-        {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex flex-col gap-2">
-                <div className="flex items-center gap-2 font-bold"><Icons.AlertCircle className="w-5 h-5"/> {error}</div>
-                {errorDetail && <div className="text-sm ml-7 whitespace-pre-wrap text-red-600">{errorDetail}</div>}
-            </div>
-        )}
-
-        {/* Results */}
-        {results && (
-            <div className="space-y-4 animate-[fadeIn_0.5s_ease-out]">
-                <div className="bg-white p-5 rounded-xl border shadow-sm">
-                    <h2 className="text-xl font-bold text-gray-800 mb-1">{results.anime_title}</h2>
-                    <p className="text-gray-500 text-sm">{results.summary}</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {results.sites.map((site, i) => (
-                        <div key={i} className="bg-white p-4 rounded-xl border shadow-sm hover:border-indigo-300 transition-colors relative group">
-                            {site.url && site.url !== 'N/A' && (
-                                <a href={site.url} target="_blank" rel="noreferrer" className="absolute top-3 right-3 text-gray-400 hover:text-indigo-600"><Icons.ExternalLink className="w-4 h-4"/></a>
-                            )}
-                            <div className="text-sm font-bold text-gray-500 mb-1">{site.name}</div>
-                            <div className="flex items-baseline gap-2 mb-2">
-                                <span className={`text-3xl font-bold ${getScoreColor(site.score, site.max_score)}`}>{site.score}</span>
-                                <span className="text-xs text-gray-400">/ {site.max_score}</span>
-                            </div>
-                            <div className="bg-gray-50 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs text-gray-500 mb-2">
-                                <Icons.Star className="w-3 h-3"/> {site.review_count}
-                            </div>
-                            <p className="text-sm text-gray-700 border-t pt-2 mt-1 leading-relaxed">{site.comment}</p>
-                        </div>
-                    ))}
-                </div>
-                <div className="text-center text-xs text-gray-400 mt-4">評分數據由 AI 透過 Google Search 即時抓取，請以實際網站為準。</div>
-            </div>
-        )}
-    </div>
-  );
-}
-
 // --- Views & Components ---
 
-function ToWatchView({ list, highlightId, onUpdate, onSearch, onRateSearch, onDelete, onEdit, onRate }) {
+// 修改：ToWatchView 接收 highlightId
+function ToWatchView({ list, highlightId, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [isCross, setIsCross] = useState(false);
   const [gachaResult, setGachaResult] = useState(null);
   
+  // 移除本地 highlightId 狀態
+
   const add = (e) => {
     e.preventDefault();
     if(!name.trim()) return;
@@ -934,6 +698,7 @@ function ToWatchView({ list, highlightId, onUpdate, onSearch, onRateSearch, onDe
       if(!list.length) return alert("清單是空的！"); 
       const winner = list[Math.floor(Math.random()*list.length)];
       setGachaResult(winner); 
+      // 修改：更新全域資料中的 highlightId，這樣就會自動觸發儲存 (localStorage/Firestore)
       onUpdate(prev => ({ ...prev, highlightId: winner.id }));
   };
 
@@ -970,8 +735,6 @@ function ToWatchView({ list, highlightId, onUpdate, onSearch, onRateSearch, onDe
             <div className="flex justify-between items-start">
               <span onClick={()=>onSearch(i.name)} className="text-lg font-bold text-gray-800 cursor-pointer hover:text-indigo-600 leading-tight break-words whitespace-normal">{i.name}</span>
               <div className="flex gap-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                {/* 新增: 評分搜尋按鈕 */}
-                <Icons.ScanSearch className="w-5 h-5 text-gray-400 hover:text-amber-500 cursor-pointer" onClick={()=>onRateSearch(i.name)} />
                 <Icons.Edit3 className="w-5 h-5 text-gray-400 hover:text-indigo-500 cursor-pointer" onClick={()=>onEdit(i)} />
                 <Icons.Trash2 className="w-5 h-5 text-gray-400 hover:text-red-500 cursor-pointer" onClick={()=>onDelete(i.id, i.name)} />
               </div>
@@ -1006,7 +769,7 @@ function ToWatchView({ list, highlightId, onUpdate, onSearch, onRateSearch, onDe
   );
 }
 
-function SeasonalView({ data, history, onUpdate, onImport, onSearch, onRateSearch, onDelete, onEdit, onRate }) {
+function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, onEdit, onRate }) {
   const [term, setTerm] = useState('');
   const [exp, setExp] = useState({});
   const [batch, setBatch] = useState(false);
@@ -1086,14 +849,7 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onRateSearc
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
                         <span onClick={()=>!batch&&onSearch(i.name)} className={`font-medium cursor-pointer break-words whitespace-normal ${isWatched(i.name)?'text-gray-500 line-through':''}`}>{i.name}</span>
-                        {!batch&& (
-                           <div className="flex gap-2 text-gray-400 opacity-60 hover:opacity-100">
-                             {/* 新增: 評分搜尋按鈕 */}
-                             <Icons.ScanSearch className="w-4 h-4 cursor-pointer hover:text-amber-500" onClick={()=>onRateSearch(i.name)} />
-                             <Icons.Edit3 className="w-4 h-4 cursor-pointer" onClick={()=>onEdit(i,f.id)} />
-                             <Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name,f.id)} />
-                           </div>
-                        )}
+                        {!batch&&<div className="flex gap-2 text-gray-400 opacity-60 hover:opacity-100"><Icons.Edit3 className="w-4 h-4 cursor-pointer" onClick={()=>onEdit(i,f.id)} /><Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name,f.id)} /></div>}
                     </div>
                     <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
                         {i.isCrossSeason && <span className="text-purple-600 bg-purple-100 px-1 rounded">跨</span>}
@@ -1126,7 +882,7 @@ function AddSeasonalItemForm({ onAdd }) {
     );
 }
 
-function HistoryView({ list, onUpdate, onSearch, onRateSearch, onDelete, onEdit }) {
+function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
   const [term, setTerm] = useState('');
   const [batch, setBatch] = useState(false);
   const [sel, setSel] = useState(new Set());
@@ -1181,8 +937,6 @@ function HistoryView({ list, onUpdate, onSearch, onRateSearch, onDelete, onEdit 
                         
                         {!batch&& (
                           <div className="flex gap-2 text-gray-400 flex-shrink-0">
-                            {/* 新增: 評分搜尋按鈕 */}
-                            <Icons.ScanSearch className="w-4 h-4 cursor-pointer hover:text-amber-500" onClick={()=>onRateSearch(i.name)} />
                             <Icons.Edit3 className="w-4 h-4 cursor-pointer hover:text-indigo-500" onClick={()=>onEdit(i)} />
                             <Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name)} />
                           </div>
