@@ -548,7 +548,6 @@ export default function App() {
   // --- Data Actions ---
   const handleGoogleSearch = (name) => window.open(`https://www.google.com/search?q=${encodeURIComponent(name)}`, '_blank');
   
-  // 修改：requestDelete 支援 folder 類型
   const requestDelete = (type, id, name, folderId) => setDeletingItem({ type, id, name, folderId });
   
   const confirmDelete = () => {
@@ -562,7 +561,6 @@ export default function App() {
           const fIdx = newData.seasonal.findIndex(f => f.id === folderId);
           if (fIdx > -1) newData.seasonal[fIdx].items = newData.seasonal[fIdx].items.filter(i => i.id !== id);
         }
-        // 新增：刪除資料夾
         else if (type === 'folder') {
           newData.seasonal = newData.seasonal.filter(f => f.id !== id);
         }
@@ -581,7 +579,6 @@ export default function App() {
           const fIdx = newData.seasonal.findIndex(f => f.id === folderId);
           if (fIdx > -1) newData.seasonal[fIdx].items = newData.seasonal[fIdx].items.map(i => i.id === listId ? { ...i, ...item } : i);
         }
-        // 新增：編輯資料夾
         else if (type === 'folder') {
           newData.seasonal = newData.seasonal.map(f => f.id === listId ? { ...f, name: item.name } : f);
         }
@@ -645,19 +642,19 @@ export default function App() {
       </nav>
 
       <main className="max-w-4xl mx-auto p-3">
-        {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} highlightId={data?.highlightId} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
+        {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} highlightId={data?.highlightId} onUpdate={updateData} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
         
-        {/* 傳入 onDelete 為支援 folder 刪除, onEdit 支援 folder 編輯 */}
-        {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={updateData} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} 
+        {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={updateData} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} 
             onDelete={(id, name, fid) => requestDelete(fid ? 'seasonal' : 'folder', id, name, fid)} 
             onEdit={(item, fid) => setEditingItem({ type: fid ? 'seasonal' : 'folder', listId: item.id, item, folderId: fid })} 
             onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
         
-        {activeTab === 'history' && <HistoryView list={data?.history || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
+        {activeTab === 'history' && <HistoryView list={data?.history || []} onUpdate={updateData} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.9 ● {user ? '已連線' : '本地模式'}</span>
+        {/* Version 2.10 - 連結修復版 */}
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v3.0 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
       {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}>
@@ -690,7 +687,7 @@ function LoginScreen({ login, error, processing }) {
 
 // --- Views & Components ---
 
-function ToWatchView({ list, highlightId, onUpdate, onSearch, onDelete, onEdit, onRate }) {
+function ToWatchView({ list, highlightId, onUpdate, onDelete, onEdit, onRate }) {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [isCross, setIsCross] = useState(false);
@@ -741,7 +738,15 @@ function ToWatchView({ list, highlightId, onUpdate, onSearch, onDelete, onEdit, 
           <div className="pt-1"><button onClick={()=>onRate(i)} className="w-6 h-6 border-2 border-gray-300 rounded hover:border-green-500 hover:bg-green-50 transition-colors"></button></div>
           <div className="flex-1">
             <div className="flex justify-between items-start">
-              <span onClick={()=>onSearch(i.name)} className="text-lg font-bold text-gray-800 cursor-pointer hover:text-indigo-600 leading-tight break-words whitespace-normal">{i.name}</span>
+              {/* 修改：使用 <a> 標籤解決白屏問題 */}
+              <a 
+                href={`https://www.google.com/search?q=${encodeURIComponent(i.name)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-lg font-bold text-gray-800 cursor-pointer hover:text-indigo-600 leading-tight break-words whitespace-normal block flex-1 no-underline"
+              >
+                {i.name}
+              </a>
               <div className="flex gap-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                 <Icons.Edit3 className="w-5 h-5 text-gray-400 hover:text-indigo-500 cursor-pointer" onClick={()=>onEdit(i)} />
                 <Icons.Trash2 className="w-5 h-5 text-gray-400 hover:text-red-500 cursor-pointer" onClick={()=>onDelete(i.id, i.name)} />
@@ -777,7 +782,7 @@ function ToWatchView({ list, highlightId, onUpdate, onSearch, onDelete, onEdit, 
   );
 }
 
-function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, onEdit, onRate }) {
+function SeasonalView({ data, history, onUpdate, onImport, onDelete, onEdit, onRate }) {
   const [term, setTerm] = useState('');
   const [exp, setExp] = useState({});
   const [batch, setBatch] = useState(false);
@@ -790,16 +795,13 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
     return data.map(f => ({...f, items: f.items.filter(i => i.name.toLowerCase().includes(t))})).filter(f => f.items.length > 0);
   }, [data, term]);
 
-  // 新增: 依年份分組邏輯
   const groupedData = useMemo(() => {
     const groups = {};
     filtered.forEach(f => {
-        // 嘗試抓取前四碼作為年份 (例如 2026)，如果沒有則歸類為 "其他"
         const year = f.name.match(/^(\d{4})/) ? f.name.match(/^(\d{4})/)[1] + "年" : "其他";
         if (!groups[year]) groups[year] = [];
         groups[year].push(f);
     });
-    // 年份倒序排列 (最新的年份在上面)
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filtered]);
   
@@ -847,7 +849,6 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
       )}
 
       <div className="space-y-8 pb-10">
-        {/* 修改: 使用分組後的數據進行渲染 */}
         {groupedData.map(([year, folders]) => (
             <div key={year}>
                 <h3 className="font-bold text-indigo-800 border-b-2 border-indigo-100 mb-4 pb-2 text-xl mt-4">
@@ -885,7 +886,21 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
                                 <div>{batch ? <div onClick={()=>toggleSel(i.id)} className={`w-5 h-5 border rounded flex items-center justify-center cursor-pointer ${sel.has(i.id)?'bg-red-500 border-red-500 text-white':''}`}>{sel.has(i.id)&&<Icons.Check className="w-3 h-3"/>}</div> : (isWatched(i.name)?<Icons.Check className="w-5 h-5 text-green-600"/>:<button onClick={()=>onRate(i)} className="w-5 h-5 border-2 rounded hover:border-green-500 transition-colors"></button>)}</div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center">
-                                        <span onClick={()=>!batch&&onSearch(i.name)} className={`font-medium cursor-pointer break-words whitespace-normal ${isWatched(i.name)?'text-gray-500 line-through':''}`}>{i.name}</span>
+                                        {/* 修改：使用 <a> 標籤，並處理 batch 模式 */}
+                                        {batch ? (
+                                            <span className={`font-medium cursor-pointer break-words whitespace-normal ${isWatched(i.name)?'text-gray-500 line-through':''}`}>{i.name}</span>
+                                        ) : (
+                                            <a 
+                                                href={`https://www.google.com/search?q=${encodeURIComponent(i.name)}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={`font-medium cursor-pointer break-words whitespace-normal block flex-1 no-underline ${isWatched(i.name)?'text-gray-500 line-through':'text-gray-800 hover:text-indigo-600'}`}
+                                                onClick={(e)=>e.stopPropagation()}
+                                            >
+                                                {i.name}
+                                            </a>
+                                        )}
+                                        
                                         {!batch&&<div className="flex gap-2 text-gray-400 opacity-60 hover:opacity-100"><Icons.Edit3 className="w-4 h-4 cursor-pointer" onClick={()=>onEdit(i,f.id)} /><Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name,f.id)} /></div>}
                                     </div>
                                     <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
@@ -923,7 +938,7 @@ function AddSeasonalItemForm({ onAdd }) {
     );
 }
 
-function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
+function HistoryView({ list, onUpdate, onDelete, onEdit }) {
   const [term, setTerm] = useState('');
   const [batch, setBatch] = useState(false);
   const [sel, setSel] = useState(new Set());
@@ -974,7 +989,19 @@ function HistoryView({ list, onUpdate, onSearch, onDelete, onEdit }) {
                 
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
-                        <span onClick={()=>!batch&&onSearch(i.name)} className="font-medium cursor-pointer text-gray-800 hover:text-indigo-600 break-words whitespace-normal flex-1 block pr-2">{i.name}</span>
+                        {/* 修改：使用 <a> 標籤，並處理 batch 模式 */}
+                        {batch ? (
+                            <span className="font-medium cursor-pointer text-gray-800 hover:text-indigo-600 break-words whitespace-normal flex-1 block pr-2">{i.name}</span>
+                        ) : (
+                            <a 
+                                href={`https://www.google.com/search?q=${encodeURIComponent(i.name)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-medium cursor-pointer text-gray-800 hover:text-indigo-600 break-words whitespace-normal flex-1 block pr-2 no-underline"
+                            >
+                                {i.name}
+                            </a>
+                        )}
                         
                         {!batch&& (
                           <div className="flex gap-2 text-gray-400 flex-shrink-0">
