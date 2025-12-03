@@ -409,7 +409,6 @@ const generateInitialData = () => {
     }
   });
 
-  // 修改：加入 highlightId: null
   return {toWatch, seasonal, history, highlightId: null, lastUpdated: Date.now()};
 };
 
@@ -458,7 +457,6 @@ export default function App() {
                 toWatch: cloudData.toWatch || [],
                 seasonal: cloudData.seasonal || [],
                 history: cloudData.history || [],
-                // 修改：讀取雲端 highlightId
                 highlightId: cloudData.highlightId || null,
                 lastUpdated: cloudData.lastUpdated || 0
             };
@@ -507,7 +505,6 @@ export default function App() {
         newData = newDataOrUpdater;
       }
 
-      // 極端防護：確保資料完整性
       if (!newData || !Array.isArray(newData.seasonal)) {
           console.error("更新失敗：資料異常", newData);
           return prevData;
@@ -550,6 +547,8 @@ export default function App() {
 
   // --- Data Actions ---
   const handleGoogleSearch = (name) => window.open(`https://www.google.com/search?q=${encodeURIComponent(name)}`, '_blank');
+  
+  // 修改：requestDelete 支援 folder 類型
   const requestDelete = (type, id, name, folderId) => setDeletingItem({ type, id, name, folderId });
   
   const confirmDelete = () => {
@@ -562,6 +561,10 @@ export default function App() {
         else if (type === 'seasonal') {
           const fIdx = newData.seasonal.findIndex(f => f.id === folderId);
           if (fIdx > -1) newData.seasonal[fIdx].items = newData.seasonal[fIdx].items.filter(i => i.id !== id);
+        }
+        // 新增：刪除資料夾
+        else if (type === 'folder') {
+          newData.seasonal = newData.seasonal.filter(f => f.id !== id);
         }
         return newData;
     });
@@ -577,6 +580,10 @@ export default function App() {
         else if (type === 'seasonal') {
           const fIdx = newData.seasonal.findIndex(f => f.id === folderId);
           if (fIdx > -1) newData.seasonal[fIdx].items = newData.seasonal[fIdx].items.map(i => i.id === listId ? { ...i, ...item } : i);
+        }
+        // 新增：編輯資料夾
+        else if (type === 'folder') {
+          newData.seasonal = newData.seasonal.map(f => f.id === listId ? { ...f, name: item.name } : f);
         }
         return newData;
     });
@@ -638,20 +645,25 @@ export default function App() {
       </nav>
 
       <main className="max-w-4xl mx-auto p-3">
-        {/* 修改：將 highlightId={data?.highlightId} 傳入 ToWatchView */}
         {activeTab === 'towatch' && <ToWatchView list={data?.toWatch || []} highlightId={data?.highlightId} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('towatch', id, name)} onEdit={(item)=>setEditingItem({type:'towatch', listId:item.id, item})} onRate={(item)=>setRateModal({isOpen:true, item, source:'towatch'})} />}
         
-        {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={updateData} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} onDelete={(id, name, fid)=>requestDelete('seasonal', id, name, fid)} onEdit={(item, fid)=>setEditingItem({type:'seasonal', listId:item.id, item, folderId:fid})} onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
+        {/* 傳入 onDelete 為支援 folder 刪除, onEdit 支援 folder 編輯 */}
+        {activeTab === 'seasonal' && <SeasonalView data={data?.seasonal || []} history={data?.history || []} onUpdate={updateData} onImport={(items)=>updateData(prev=>({...prev, toWatch:[...prev.toWatch, ...items]}))} onSearch={handleGoogleSearch} 
+            onDelete={(id, name, fid) => requestDelete(fid ? 'seasonal' : 'folder', id, name, fid)} 
+            onEdit={(item, fid) => setEditingItem({ type: fid ? 'seasonal' : 'folder', listId: item.id, item, folderId: fid })} 
+            onRate={(item)=>setRateModal({isOpen:true, item, source:'seasonal'})} />}
         
         {activeTab === 'history' && <HistoryView list={data?.history || []} onUpdate={updateData} onSearch={handleGoogleSearch} onDelete={(id, name)=>requestDelete('history', id, name)} onEdit={(item)=>setEditingItem({type:'history', listId:item.id, item})} />}
       </main>
 
       <div className="fixed bottom-2 left-0 right-0 text-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        {/* Version 2.8 Updated */}
-        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.8 ● {user ? '已連線' : '本地模式'}</span>
+        <span className="text-[10px] text-gray-400 bg-white/80 px-2 py-0.5 rounded-full shadow-sm backdrop-blur">v2.9 ● {user ? '已連線' : '本地模式'}</span>
       </div>
 
-      {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}><EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} /></Modal>}
+      {editingItem && <Modal title="編輯" onClose={()=>setEditingItem(null)}>
+          <EditForm initialData={editingItem.item} onSave={saveEdit} onClose={()=>setEditingItem(null)} isFolder={editingItem.type === 'folder'} />
+      </Modal>}
+      
       {deletingItem && <Modal title="刪除確認" onClose={()=>setDeletingItem(null)}><div className="text-center p-4"><p className="mb-4">確定刪除「{deletingItem.name}」？</p><div className="flex gap-2"><button onClick={()=>setDeletingItem(null)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={confirmDelete} className="flex-1 py-2 bg-red-600 text-white rounded">刪除</button></div></div></Modal>}
       {rateModal.isOpen && <Modal title={`完食評分：${rateModal.item.name}`} onClose={()=>setRateModal({isOpen:false})}><RateForm item={rateModal.item} onConfirm={confirmRate} onCancel={()=>setRateModal({isOpen:false})} /></Modal>}
       {resetConfirm && <Modal title="重置確認" onClose={()=>setResetConfirm(false)}><div className="text-center p-4"><p className="mb-4 text-red-600 font-bold">警告：這會刪除目前紀錄，並還原成您剛剛提供的完整清單。</p><div className="flex gap-2"><button onClick={()=>setResetConfirm(false)} className="flex-1 py-2 bg-gray-100 rounded">取消</button><button onClick={performReset} className="flex-1 py-2 bg-red-600 text-white rounded">確認還原</button></div></div></Modal>}
@@ -678,15 +690,12 @@ function LoginScreen({ login, error, processing }) {
 
 // --- Views & Components ---
 
-// 修改：ToWatchView 接收 highlightId
 function ToWatchView({ list, highlightId, onUpdate, onSearch, onDelete, onEdit, onRate }) {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [isCross, setIsCross] = useState(false);
   const [gachaResult, setGachaResult] = useState(null);
   
-  // 移除本地 highlightId 狀態
-
   const add = (e) => {
     e.preventDefault();
     if(!name.trim()) return;
@@ -698,7 +707,6 @@ function ToWatchView({ list, highlightId, onUpdate, onSearch, onDelete, onEdit, 
       if(!list.length) return alert("清單是空的！"); 
       const winner = list[Math.floor(Math.random()*list.length)];
       setGachaResult(winner); 
-      // 修改：更新全域資料中的 highlightId，這樣就會自動觸發儲存 (localStorage/Firestore)
       onUpdate(prev => ({ ...prev, highlightId: winner.id }));
   };
 
@@ -781,6 +789,19 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
     const t = term.toLowerCase();
     return data.map(f => ({...f, items: f.items.filter(i => i.name.toLowerCase().includes(t))})).filter(f => f.items.length > 0);
   }, [data, term]);
+
+  // 新增: 依年份分組邏輯
+  const groupedData = useMemo(() => {
+    const groups = {};
+    filtered.forEach(f => {
+        // 嘗試抓取前四碼作為年份 (例如 2026)，如果沒有則歸類為 "其他"
+        const year = f.name.match(/^(\d{4})/) ? f.name.match(/^(\d{4})/)[1] + "年" : "其他";
+        if (!groups[year]) groups[year] = [];
+        groups[year].push(f);
+    });
+    // 年份倒序排列 (最新的年份在上面)
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [filtered]);
   
   const isWatched = (n) => history.some(h => h.name.replace(/\s/g,'') === n.replace(/\s/g,''));
   const toggleSel = (id) => { const s = new Set(sel); if(s.has(id)) s.delete(id); else s.add(id); setSel(s); };
@@ -825,43 +846,63 @@ function SeasonalView({ data, history, onUpdate, onImport, onSearch, onDelete, o
         </div>
       )}
 
-      <div className="space-y-3">{filtered.map(f => {
-        const open = term || batch || exp[f.id];
-        const watched = f.items.filter(i=>isWatched(i.name)).length;
-        const sorted = [...f.items].sort((a,b) => (isWatched(a.name)===isWatched(b.name)?0:isWatched(a.name)?1:-1));
-        return (
-          <div key={f.id} className="bg-white rounded-lg border overflow-hidden shadow-sm transition-all">
-            <div onClick={()=>!term&&!batch&&setExp(p=>({...p,[f.id]:!p[f.id]}))} className="flex justify-between p-4 bg-white border-b border-gray-100 text-sm font-bold cursor-pointer hover:bg-gray-50 items-center">
-              <div className="flex items-center gap-3">
-                 <span className={`text-gray-400 transition-transform ${open?'rotate-180':''}`}><Icons.Folder className={`w-5 h-5 ${open?'text-indigo-500':''}`}/></span>
-                 <span className="text-lg text-gray-700">{f.name}</span>
-                 <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs">{watched}/{f.items.length}</span>
-              </div>
-              {!term && !batch && <button onClick={(e)=>{e.stopPropagation();onImport(f.items)}} className="flex items-center gap-1 text-blue-600 bg-blue-50 px-3 py-1.5 rounded text-xs hover:bg-blue-100"><Icons.Save className="w-3 h-3"/> 匯入待看</button>}
-            </div>
-            
-            {open && <div className="p-4 bg-gray-50/50">
-              {!batch && !term && <AddSeasonalItemForm onAdd={(n, note, c)=>add(f.id,n,note,c)} />}
-              
-              <div className="space-y-2 mt-3">{sorted.map(i => (
-                <div key={i.id} className={`flex gap-3 p-3 rounded-lg border text-sm items-center transition-all ${isWatched(i.name)?'bg-green-50/80 border-green-200':'bg-white hover:border-indigo-300'}`}>
-                  <div>{batch ? <div onClick={()=>toggleSel(i.id)} className={`w-5 h-5 border rounded flex items-center justify-center cursor-pointer ${sel.has(i.id)?'bg-red-500 border-red-500 text-white':''}`}>{sel.has(i.id)&&<Icons.Check className="w-3 h-3"/>}</div> : (isWatched(i.name)?<Icons.Check className="w-5 h-5 text-green-600"/>:<button onClick={()=>onRate(i)} className="w-5 h-5 border-2 rounded hover:border-green-500 transition-colors"></button>)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center">
-                        <span onClick={()=>!batch&&onSearch(i.name)} className={`font-medium cursor-pointer break-words whitespace-normal ${isWatched(i.name)?'text-gray-500 line-through':''}`}>{i.name}</span>
-                        {!batch&&<div className="flex gap-2 text-gray-400 opacity-60 hover:opacity-100"><Icons.Edit3 className="w-4 h-4 cursor-pointer" onClick={()=>onEdit(i,f.id)} /><Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name,f.id)} /></div>}
-                    </div>
-                    <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
-                        {i.isCrossSeason && <span className="text-purple-600 bg-purple-100 px-1 rounded">跨</span>}
-                        <span className="truncate">{i.note}</span>
-                    </div>
-                  </div>
+      <div className="space-y-8 pb-10">
+        {/* 修改: 使用分組後的數據進行渲染 */}
+        {groupedData.map(([year, folders]) => (
+            <div key={year}>
+                <h3 className="font-bold text-indigo-800 border-b-2 border-indigo-100 mb-4 pb-2 text-xl mt-4">
+                    {year}
+                </h3>
+                <div className="space-y-3">
+                    {folders.map(f => {
+                        const open = term || batch || exp[f.id];
+                        const watched = f.items.filter(i=>isWatched(i.name)).length;
+                        const sorted = [...f.items].sort((a,b) => (isWatched(a.name)===isWatched(b.name)?0:isWatched(a.name)?1:-1));
+                        return (
+                        <div key={f.id} className="bg-white rounded-lg border overflow-hidden shadow-sm transition-all">
+                            <div onClick={()=>!term&&!batch&&setExp(p=>({...p,[f.id]:!p[f.id]}))} className="flex justify-between p-4 bg-white border-b border-gray-100 text-sm font-bold cursor-pointer hover:bg-gray-50 items-center">
+                            <div className="flex items-center gap-3">
+                                <span className={`text-gray-400 transition-transform ${open?'rotate-180':''}`}><Icons.Folder className={`w-5 h-5 ${open?'text-indigo-500':''}`}/></span>
+                                <span className="text-lg text-gray-700">{f.name}</span>
+                                <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs">{watched}/{f.items.length}</span>
+                            </div>
+                            {!term && !batch && (
+                                <div className="flex items-center gap-2">
+                                    <div className="flex gap-1 mr-2 opacity-50 hover:opacity-100 transition-opacity">
+                                        <button onClick={(e)=>{e.stopPropagation();onEdit(f, null)}} className="p-1.5 hover:bg-gray-200 rounded text-gray-500"><Icons.Edit3 className="w-4 h-4"/></button>
+                                        <button onClick={(e)=>{e.stopPropagation();onDelete(f.id, f.name, null)}} className="p-1.5 hover:bg-red-100 rounded text-red-400"><Icons.Trash2 className="w-4 h-4"/></button>
+                                    </div>
+                                    <button onClick={(e)=>{e.stopPropagation();onImport(f.items)}} className="flex items-center gap-1 text-blue-600 bg-blue-50 px-3 py-1.5 rounded text-xs hover:bg-blue-100"><Icons.Save className="w-3 h-3"/> 匯入待看</button>
+                                </div>
+                            )}
+                            </div>
+                            
+                            {open && <div className="p-4 bg-gray-50/50">
+                            {!batch && !term && <AddSeasonalItemForm onAdd={(n, note, c)=>add(f.id,n,note,c)} />}
+                            
+                            <div className="space-y-2 mt-3">{sorted.map(i => (
+                                <div key={i.id} className={`flex gap-3 p-3 rounded-lg border text-sm items-center transition-all ${isWatched(i.name)?'bg-green-50/80 border-green-200':'bg-white hover:border-indigo-300'}`}>
+                                <div>{batch ? <div onClick={()=>toggleSel(i.id)} className={`w-5 h-5 border rounded flex items-center justify-center cursor-pointer ${sel.has(i.id)?'bg-red-500 border-red-500 text-white':''}`}>{sel.has(i.id)&&<Icons.Check className="w-3 h-3"/>}</div> : (isWatched(i.name)?<Icons.Check className="w-5 h-5 text-green-600"/>:<button onClick={()=>onRate(i)} className="w-5 h-5 border-2 rounded hover:border-green-500 transition-colors"></button>)}</div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-center">
+                                        <span onClick={()=>!batch&&onSearch(i.name)} className={`font-medium cursor-pointer break-words whitespace-normal ${isWatched(i.name)?'text-gray-500 line-through':''}`}>{i.name}</span>
+                                        {!batch&&<div className="flex gap-2 text-gray-400 opacity-60 hover:opacity-100"><Icons.Edit3 className="w-4 h-4 cursor-pointer" onClick={()=>onEdit(i,f.id)} /><Icons.Trash2 className="w-4 h-4 cursor-pointer text-red-300 hover:text-red-500" onClick={()=>onDelete(i.id,i.name,f.id)} /></div>}
+                                    </div>
+                                    <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
+                                        {i.isCrossSeason && <span className="text-purple-600 bg-purple-100 px-1 rounded">跨</span>}
+                                        <span className="truncate">{i.note}</span>
+                                    </div>
+                                </div>
+                                </div>
+                            ))}</div>
+                            </div>}
+                        </div>
+                        )
+                    })}
                 </div>
-              ))}</div>
-            </div>}
-          </div>
-        )
-      })}</div>
+            </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -960,9 +1001,29 @@ function Modal({ title, children, onClose }) {
   return <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 backdrop-blur-sm"><div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6"><div className="flex justify-between mb-4 border-b pb-2"><h3 className="text-xl font-bold text-gray-800">{title}</h3><button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Icons.X /></button></div>{children}</div></div>;
 }
 
-function EditForm({ initialData, onSave, onClose }) {
+// 修改: EditForm 新增 isFolder prop
+function EditForm({ initialData, onSave, onClose, isFolder }) {
   const [d, setD] = useState(initialData);
-  return <form onSubmit={e=>{e.preventDefault();onSave(d)}} className="space-y-4"><div><label className="text-sm block text-gray-600 mb-1">名稱</label><input className="w-full border rounded p-2 focus:ring-2 focus:ring-indigo-100 outline-none" value={d.name} onChange={e=>setD({...d,name:e.target.value})} /></div><div><label className="text-sm block text-gray-600 mb-1">備註</label><textarea className="w-full border rounded p-2 focus:ring-2 focus:ring-indigo-100 outline-none" value={d.note} onChange={e=>setD({...d,note:e.target.value})} /></div><label className="flex gap-2 text-sm text-gray-700 items-center"><input type="checkbox" className="w-4 h-4 text-indigo-600" checked={d.isCrossSeason} onChange={e=>setD({...d,isCrossSeason:e.target.checked})} /> 跨季追番</label><button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded font-bold shadow transition-colors">儲存變更</button></form>;
+  return <form onSubmit={e=>{e.preventDefault();onSave(d)}} className="space-y-4">
+      <div>
+          <label className="text-sm block text-gray-600 mb-1">{isFolder ? '資料夾名稱' : '名稱'}</label>
+          <input className="w-full border rounded p-2 focus:ring-2 focus:ring-indigo-100 outline-none" value={d.name} onChange={e=>setD({...d,name:e.target.value})} />
+      </div>
+      
+      {!isFolder && (
+        <>
+          <div>
+              <label className="text-sm block text-gray-600 mb-1">備註</label>
+              <textarea className="w-full border rounded p-2 focus:ring-2 focus:ring-indigo-100 outline-none" value={d.note} onChange={e=>setD({...d,note:e.target.value})} />
+          </div>
+          <label className="flex gap-2 text-sm text-gray-700 items-center">
+              <input type="checkbox" className="w-4 h-4 text-indigo-600" checked={d.isCrossSeason} onChange={e=>setD({...d,isCrossSeason:e.target.checked})} /> 跨季追番
+          </label>
+        </>
+      )}
+      
+      <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded font-bold shadow transition-colors">儲存變更</button>
+  </form>;
 }
 
 function RateForm({ item, onConfirm, onCancel }) {
